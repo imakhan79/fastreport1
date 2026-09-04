@@ -23,8 +23,6 @@ export async function isReportReadyToGenerate(
   report: Report,
   plan: OrchestratorPlan
 ): Promise<boolean> {
-  if (plan.approval.required) return false; // no approval workflow built yet
-
   if (plan.design.required) {
     const { data: design } = await admin
       .from("designs")

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../supabase/database.types";
-import { tryGenerateReport } from "./report-generation";
+import { resolveApproval } from "./approval-pipeline";
+import { advanceReportWorkflow } from "./workflow";
 import type { OrchestratorPlan } from "./orchestrator-schema";
 
 export class TaskResolutionError extends Error {}
@@ -9,9 +10,12 @@ type Decision = "approve" | "reject";
 
 /**
  * Applies a human reviewer's decision to whatever the task is actually
- * about (a design, a query, or an attachment), then closes the task.
- * The automated pipelines already advanced the report past these stages -
- * this only records whether the artifact itself is trustworthy.
+ * about (a design, a query, an attachment, or the whole report's final
+ * approval), then closes the task. The automated pipelines already
+ * advanced the report past design/query/attachment stages - resolving
+ * those only records whether the artifact itself is trustworthy. Approval
+ * is different: it's the gate itself, so resolving it can move the report
+ * status forward (or fail it) directly.
  */
 export async function resolveTask(
   admin: SupabaseClient<Database>,
@@ -30,6 +34,16 @@ export async function resolveTask(
   }
   if (task.status !== "open") {
     throw new TaskResolutionError("Task is already resolved.");
+  }
+
+  let plan: OrchestratorPlan | null = null;
+  if (task.report_id) {
+    const { data: report } = await admin.from("reports").select("*").eq("id", task.report_id).single();
+    if (report?.structured_plan) plan = report.structured_plan as unknown as OrchestratorPlan;
+
+    if (task.task_type === "approval" && report && plan) {
+      await resolveApproval(admin, report, plan, decision);
+    }
   }
 
   if (task.task_type === "design_review" && task.related_entity_id) {
@@ -71,7 +85,7 @@ export async function resolveTask(
         }
       }
     }
-  } else {
+  } else if (task.task_type !== "approval") {
     throw new TaskResolutionError(`Task type "${task.task_type}" is not reviewable here.`);
   }
 
@@ -91,13 +105,13 @@ export async function resolveTask(
     details: { task_id: task.id, task_type: task.task_type },
   });
 
-  if (decision === "approve" && task.report_id) {
+  if (task.report_id && plan) {
     const { data: report } = await admin.from("reports").select("*").eq("id", task.report_id).single();
-    if (report?.structured_plan) {
+    if (report) {
       try {
-        await tryGenerateReport(admin, report, report.structured_plan as unknown as OrchestratorPlan);
+        await advanceReportWorkflow(admin, report, plan);
       } catch (error) {
-        console.error("Report generation failure after task approval:", error);
+        console.error("Report workflow advancement failure after task resolution:", error);
       }
     }
   }

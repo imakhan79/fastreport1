@@ -22,6 +22,7 @@ const TASK_TYPE_LABEL: Record<string, string> = {
   query_review: "Query Review",
   attachment_review: "Attachment Review",
   attachment_request: "Attachment Request",
+  approval: "Final Approval",
 };
 
 export default function TasksPage() {

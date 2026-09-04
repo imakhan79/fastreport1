@@ -6,7 +6,7 @@ import { initialStatusFor } from "@/lib/ai/report-status";
 import { runDesignPipeline, DesignPipelineError } from "@/lib/ai/design-pipeline";
 import { runQueryPipeline, QueryPipelineError } from "@/lib/ai/query-pipeline";
 import { requestMissingAttachments } from "@/lib/ai/attachment-pipeline";
-import { tryGenerateReport } from "@/lib/ai/report-generation";
+import { advanceReportWorkflow } from "@/lib/ai/workflow";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -108,10 +108,10 @@ export async function POST(req: NextRequest) {
 
   try {
     if (reportAfterPipelines) {
-      await tryGenerateReport(admin, reportAfterPipelines, plan);
+      await advanceReportWorkflow(admin, reportAfterPipelines, plan);
     }
   } catch (error) {
-    console.error("Report generation failure:", error);
+    console.error("Report workflow advancement failure:", error);
   }
 
   const { data: finalReport } = await admin.from("reports").select("*").eq("id", report.id).single();

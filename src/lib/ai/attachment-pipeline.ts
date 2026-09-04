@@ -7,36 +7,11 @@ import {
   type AttachmentClassification,
 } from "./attachment-schema";
 import { getConfidenceThreshold } from "./confidence";
-import { tryGenerateReport } from "./report-generation";
+import { advanceReportWorkflow } from "./workflow";
+import { pickResponsibleUser } from "./assignment";
 import type { OrchestratorPlan } from "./orchestrator-schema";
 
 const DEADLINE_HOURS = 24;
-
-/**
- * No skill/workload routing built yet - picks the org's owner (falling
- * back to any member) as the responsible party for an attachment request.
- */
-async function pickResponsibleUser(
-  admin: SupabaseClient<Database>,
-  orgId: number
-): Promise<string | null> {
-  const { data: owner } = await admin
-    .from("org_members")
-    .select("user_id")
-    .eq("org_id", orgId)
-    .eq("role", "owner")
-    .limit(1)
-    .maybeSingle();
-  if (owner) return owner.user_id;
-
-  const { data: anyMember } = await admin
-    .from("org_members")
-    .select("user_id")
-    .eq("org_id", orgId)
-    .limit(1)
-    .maybeSingle();
-  return anyMember?.user_id ?? null;
-}
 
 /**
  * Section 3/4 of the spec: for every attachment requirement a report needs,
@@ -344,7 +319,7 @@ export async function processAttachmentUpload(
     const { data: report } = await admin.from("reports").select("*").eq("id", requirement.report_id).single();
     if (report?.structured_plan) {
       try {
-        await tryGenerateReport(admin, report, report.structured_plan as unknown as OrchestratorPlan);
+        await advanceReportWorkflow(admin, report, report.structured_plan as unknown as OrchestratorPlan);
       } catch (error) {
         console.error("Report generation failure after attachment approval:", error);
       }
