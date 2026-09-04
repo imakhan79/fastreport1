@@ -122,6 +122,78 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["audit_log"]["Insert"]>;
         Relationships: [];
       };
+      designs: {
+        Row: {
+          id: number;
+          org_id: number;
+          report_id: number;
+          version: number;
+          layout: Json;
+          components: Json;
+          style: Json;
+          confidence: number;
+          status: string;
+          generated_by: string;
+          qa_issues: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          org_id: number;
+          report_id: number;
+          version?: number;
+          layout?: Json;
+          components?: Json;
+          style?: Json;
+          confidence: number;
+          status?: string;
+          generated_by?: string;
+          qa_issues?: Json;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["designs"]["Insert"]>;
+        Relationships: [];
+      };
+      tasks: {
+        Row: {
+          id: number;
+          org_id: number;
+          report_id: number | null;
+          task_type: string;
+          related_entity_type: string | null;
+          related_entity_id: number | null;
+          assigned_to: string | null;
+          priority: string;
+          status: string;
+          confidence: number | null;
+          deadline: string | null;
+          created_at: string;
+          completed_at: string | null;
+        };
+        Insert: {
+          id?: number;
+          org_id: number;
+          report_id?: number | null;
+          task_type: string;
+          related_entity_type?: string | null;
+          related_entity_id?: number | null;
+          assigned_to?: string | null;
+          priority?: string;
+          status?: string;
+          confidence?: number | null;
+          deadline?: string | null;
+          created_at?: string;
+          completed_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["tasks"]["Insert"]>;
+        Relationships: [];
+      };
+      confidence_thresholds: {
+        Row: { id: number; org_id: number; action_type: string; threshold: number };
+        Insert: { id?: number; org_id: number; action_type: string; threshold?: number };
+        Update: Partial<Database["public"]["Tables"]["confidence_thresholds"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

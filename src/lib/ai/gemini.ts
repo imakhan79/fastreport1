@@ -10,4 +10,4 @@ export function getGeminiClient(): GoogleGenAI {
   return client;
 }
 
-export const ORCHESTRATOR_MODEL = "gemini-flash-latest";
+export const ORCHESTRATOR_MODEL = "gemini-3.6-flash";

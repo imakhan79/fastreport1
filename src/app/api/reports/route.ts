@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureDefaultOrgAndUser } from "@/lib/bootstrap";
 import { analyzeReportRequest, OrchestratorError } from "@/lib/ai/orchestrator";
 import { initialStatusFor } from "@/lib/ai/report-status";
+import { runDesignPipeline, DesignPipelineError } from "@/lib/ai/design-pipeline";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -70,5 +71,19 @@ export async function POST(req: NextRequest) {
     details: { plan },
   });
 
-  return NextResponse.json({ report, plan });
+  let design = null;
+  let designError: string | null = null;
+  if (plan.design.required) {
+    try {
+      const result = await runDesignPipeline(admin, report, plan);
+      design = result.design;
+    } catch (error) {
+      designError = error instanceof DesignPipelineError ? error.message : "Design pipeline failed unexpectedly.";
+      console.error("Design pipeline failure:", error);
+    }
+  }
+
+  const { data: finalReport } = await admin.from("reports").select("*").eq("id", report.id).single();
+
+  return NextResponse.json({ report: finalReport ?? report, plan, design, designError });
 }

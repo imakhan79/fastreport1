@@ -1,4 +1,4 @@
-import { getGeminiClient, ORCHESTRATOR_MODEL } from "./gemini";
+import { callGeminiTool, AiToolCallError } from "./call-tool";
 import {
   ORCHESTRATOR_PLAN_TOOL_SCHEMA,
   OrchestratorPlanSchema,
@@ -31,46 +31,21 @@ export class OrchestratorError extends Error {}
 export async function analyzeReportRequest(
   naturalLanguageRequest: string
 ): Promise<OrchestratorPlan> {
-  const client = getGeminiClient();
-
-  let interaction;
   try {
-    interaction = await client.interactions.create({
-      model: ORCHESTRATOR_MODEL,
-      system_instruction: SYSTEM_PROMPT,
+    return await callGeminiTool({
+      systemInstruction: SYSTEM_PROMPT,
       input: naturalLanguageRequest,
-      tools: [
-        {
-          type: "function",
-          name: "submit_plan",
-          description: "Submit the structured execution plan for this report request.",
-          parameters: ORCHESTRATOR_PLAN_TOOL_SCHEMA,
-        },
-      ],
-      generation_config: { tool_choice: "any" },
+      toolName: "submit_plan",
+      toolDescription: "Submit the structured execution plan for this report request.",
+      toolParameters: ORCHESTRATOR_PLAN_TOOL_SCHEMA,
+      schema: OrchestratorPlanSchema,
     });
   } catch (error) {
-    throw new OrchestratorError(
-      `Gemini API error: ${error instanceof Error ? error.message : String(error)}`
-    );
+    if (error instanceof AiToolCallError) {
+      throw new OrchestratorError(error.message);
+    }
+    throw error;
   }
-
-  const functionCallStep = interaction.steps?.find(
-    (step: { type: string }) => step.type === "function_call"
-  ) as { type: string; name: string; arguments: unknown } | undefined;
-
-  if (!functionCallStep) {
-    throw new OrchestratorError("Orchestrator did not return a plan (no function_call step).");
-  }
-
-  const parsed = OrchestratorPlanSchema.safeParse(functionCallStep.arguments);
-  if (!parsed.success) {
-    throw new OrchestratorError(
-      `Orchestrator plan failed schema validation: ${parsed.error.message}`
-    );
-  }
-
-  return parsed.data;
 }
 
 export type { OrchestratorPlan };

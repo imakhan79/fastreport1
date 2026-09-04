@@ -20,6 +20,21 @@ type ReportResult = {
     approval: { required: boolean };
     distribution: { required: boolean; channel: string | null };
   };
+  design: {
+    id: number;
+    confidence: number;
+    status: string;
+    qa_issues: string[];
+    layout: { sections: { id: string; title: string; order: number }[] };
+    components: {
+      id: string;
+      section_id: string;
+      type: string;
+      title: string;
+      chart_type: string;
+    }[];
+  } | null;
+  designError: string | null;
 };
 
 export default function NewReportPage() {
@@ -132,6 +147,65 @@ export default function NewReportPage() {
               }
             />
           </dl>
+        </div>
+      )}
+
+      {result?.designError && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-400">
+          Design pipeline failed: {result.designError}
+        </div>
+      )}
+
+      {result?.design && (
+        <div className="flex flex-col gap-4 rounded-lg border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
+          <div className="flex items-center justify-between">
+            <h2 className="font-medium text-black dark:text-zinc-50">Design</h2>
+            <span
+              className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                result.design.status === "auto_approved"
+                  ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                  : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+              }`}
+            >
+              {result.design.status === "auto_approved" ? "auto-approved" : "pending human review"}
+            </span>
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            confidence {result.design.confidence}%
+          </p>
+
+          {result.design.qa_issues.length > 0 && (
+            <ul className="list-inside list-disc text-xs text-amber-700 dark:text-amber-400">
+              {result.design.qa_issues.map((issue, i) => (
+                <li key={i}>{issue}</li>
+              ))}
+            </ul>
+          )}
+
+          <div className="flex flex-col gap-3">
+            {result.design.layout.sections
+              .slice()
+              .sort((a, b) => a.order - b.order)
+              .map((section) => (
+                <div key={section.id} className="rounded-md border border-black/10 p-3 dark:border-white/10">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+                    {section.title}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {result.design!.components
+                      .filter((c) => c.section_id === section.id)
+                      .map((c) => (
+                        <span
+                          key={c.id}
+                          className="rounded-md bg-black/5 px-2 py-1 text-xs text-black dark:bg-white/10 dark:text-zinc-50"
+                        >
+                          {c.title} ({c.type === "chart" ? c.chart_type : c.type})
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              ))}
+          </div>
         </div>
       )}
     </div>
