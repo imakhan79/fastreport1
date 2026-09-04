@@ -6,8 +6,8 @@ import { motion } from "framer-motion";
 import { List, X } from "@phosphor-icons/react";
 
 const LINKS = [
-  { href: "#pipeline", label: "How it works" },
-  { href: "#features", label: "Features" },
+  { href: "/#pipeline", label: "How it works" },
+  { href: "/#features", label: "Features" },
   { href: "/tasks", label: "Review dashboard" },
 ];
 

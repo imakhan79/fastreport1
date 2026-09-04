@@ -2,6 +2,20 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ArrowLeft,
+  PaintBrush,
+  Database,
+  Paperclip,
+  SealCheck,
+  Clock,
+  CheckCircle,
+  XCircle,
+  CircleNotch,
+  WarningCircle,
+  type Icon,
+} from "@phosphor-icons/react";
 
 type Task = {
   id: number;
@@ -23,6 +37,19 @@ const TASK_TYPE_LABEL: Record<string, string> = {
   attachment_review: "Attachment Review",
   attachment_request: "Attachment Request",
   approval: "Final Approval",
+};
+
+const TASK_TYPE_ICON: Record<string, Icon> = {
+  design_review: PaintBrush,
+  query_review: Database,
+  attachment_review: Paperclip,
+  attachment_request: Paperclip,
+  approval: SealCheck,
+};
+
+const fadeIn = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
 export default function TasksPage() {
@@ -63,39 +90,67 @@ export default function TasksPage() {
   const resolvedTasks = tasks.filter((t) => t.status !== "open");
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-6 py-16 font-sans">
-      <div>
-        <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">Human Review</h1>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+    <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-6 py-16">
+      <motion.div initial="hidden" animate="show" variants={fadeIn}>
+        <span className="rounded-full border border-[var(--color-border)] bg-card/70 px-4 py-1.5 text-xs font-semibold tracking-wide text-primary">
+          HUMAN REVIEW
+        </span>
+        <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground">Review dashboard</h1>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           Only tasks the automation couldn&apos;t confidently resolve show up here.
         </p>
-        <Link href="/reports/new" className="mt-2 inline-block text-sm text-blue-600 dark:text-blue-400">
-          &larr; New report request
+        <Link
+          href="/reports/new"
+          className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          <ArrowLeft size={14} weight="bold" /> New report request
         </Link>
-      </div>
+      </motion.div>
 
-      {loading && <p className="text-sm text-zinc-500">Loading...</p>}
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <CircleNotch size={16} weight="bold" className="animate-spin" />
+          Loading...
+        </div>
+      )}
 
       {!loading && openTasks.length === 0 && (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">No open review tasks. Everything auto-approved.</p>
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={fadeIn}
+          className="flex items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-card/70 p-6 text-sm text-muted-foreground backdrop-blur"
+        >
+          <CheckCircle size={18} weight="bold" className="text-green-600" />
+          No open review tasks. Everything auto-approved.
+        </motion.div>
       )}
 
       <div className="flex flex-col gap-4">
-        {openTasks.map((task) => (
-          <TaskCard key={task.id} task={task} busy={busyId === task.id} onDecision={handleDecision} />
-        ))}
+        <AnimatePresence>
+          {openTasks.map((task) => (
+            <TaskCard key={task.id} task={task} busy={busyId === task.id} onDecision={handleDecision} />
+          ))}
+        </AnimatePresence>
       </div>
 
       {waitingOnUpload.length > 0 && (
         <div>
-          <h2 className="mb-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+            <Clock size={14} weight="bold" />
             Waiting on document upload ({waitingOnUpload.length})
           </h2>
           <div className="flex flex-col gap-2">
             {waitingOnUpload.map((task) => (
-              <div key={task.id} className="rounded-md border border-black/10 p-3 text-sm dark:border-white/10">
-                <span className="font-medium text-black dark:text-zinc-50">{task.report?.title ?? "Report"}</span>
-                <span className="text-zinc-500 dark:text-zinc-400"> &middot; deadline {task.deadline ? new Date(task.deadline).toLocaleString() : "none"}</span>
+              <div
+                key={task.id}
+                className="rounded-xl border border-[var(--color-border)] bg-card/50 p-4 text-sm"
+              >
+                <span className="font-medium text-foreground">{task.report?.title ?? "Report"}</span>
+                <span className="text-muted-foreground">
+                  {" "}
+                  &middot; deadline {task.deadline ? new Date(task.deadline).toLocaleString() : "none"}
+                </span>
               </div>
             ))}
           </div>
@@ -104,13 +159,20 @@ export default function TasksPage() {
 
       {resolvedTasks.length > 0 && (
         <div>
-          <h2 className="mb-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
-            Resolved ({resolvedTasks.length})
-          </h2>
+          <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Resolved ({resolvedTasks.length})</h2>
           <div className="flex flex-col gap-2">
             {resolvedTasks.map((task) => (
-              <div key={task.id} className="rounded-md border border-black/5 p-3 text-sm text-zinc-500 dark:border-white/5 dark:text-zinc-400">
-                {TASK_TYPE_LABEL[task.task_type] ?? task.task_type} for &quot;{task.report?.title}&quot; &middot; {task.status}
+              <div
+                key={task.id}
+                className="flex items-center gap-2 rounded-xl border border-[var(--color-border)]/50 p-3 text-sm text-muted-foreground"
+              >
+                {task.status === "completed" ? (
+                  <CheckCircle size={14} weight="bold" className="shrink-0 text-green-600" />
+                ) : (
+                  <XCircle size={14} weight="bold" className="shrink-0 text-muted-foreground" />
+                )}
+                {TASK_TYPE_LABEL[task.task_type] ?? task.task_type} for &quot;{task.report?.title}&quot; &middot;{" "}
+                {task.status}
               </div>
             ))}
           </div>
@@ -129,30 +191,47 @@ function TaskCard({
   busy: boolean;
   onDecision: (taskId: number, decision: "approve" | "reject") => void;
 }) {
+  const IconComponent = TASK_TYPE_ICON[task.task_type] ?? SealCheck;
+
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
-      <div className="flex items-center justify-between">
-        <div>
-          <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
-            {TASK_TYPE_LABEL[task.task_type] ?? task.task_type}
+    <motion.div
+      layout
+      initial="hidden"
+      animate="show"
+      exit={{ opacity: 0, x: -16, transition: { duration: 0.25 } }}
+      variants={fadeIn}
+      className="flex flex-col gap-4 rounded-2xl border border-[var(--color-border)] bg-card/70 p-6 backdrop-blur"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600">
+            <IconComponent size={17} weight="bold" aria-hidden="true" />
           </span>
-          <h2 className="mt-1 font-medium text-black dark:text-zinc-50">
-            {task.report?.title ?? task.report?.natural_language_request ?? "Report"}
-          </h2>
+          <div>
+            <span className="text-xs font-semibold tracking-wide text-amber-600">
+              {TASK_TYPE_LABEL[task.task_type] ?? task.task_type}
+            </span>
+            <h2 className="font-semibold text-foreground">
+              {task.report?.title ?? task.report?.natural_language_request ?? "Report"}
+            </h2>
+          </div>
         </div>
-        <div className="text-right text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="shrink-0 text-right text-xs whitespace-nowrap text-muted-foreground">
           {task.confidence !== null && <div>confidence {task.confidence}%</div>}
           {task.deadline && <div>due {new Date(task.deadline).toLocaleString()}</div>}
         </div>
       </div>
 
       {task.design && (
-        <div className="text-xs text-zinc-600 dark:text-zinc-400">
+        <div className="text-xs text-muted-foreground">
           Design confidence {task.design.confidence}%
           {task.design.qa_issues.length > 0 && (
-            <ul className="mt-1 list-inside list-disc">
+            <ul className="mt-1 flex flex-col gap-1 text-amber-600">
               {task.design.qa_issues.map((issue, i) => (
-                <li key={i}>{issue}</li>
+                <li key={i} className="flex items-start gap-1.5">
+                  <WarningCircle size={12} weight="bold" className="mt-0.5 shrink-0" />
+                  {issue}
+                </li>
               ))}
             </ul>
           )}
@@ -160,17 +239,20 @@ function TaskCard({
       )}
 
       {task.query && (
-        <div className="flex flex-col gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+        <div className="flex flex-col gap-2 text-xs text-muted-foreground">
           {task.query.sql_text && (
-            <pre className="overflow-x-auto rounded-md bg-black/5 p-2 dark:bg-white/10">{task.query.sql_text}</pre>
+            <pre className="overflow-x-auto rounded-xl bg-[#0f172a] p-3 text-slate-100">{task.query.sql_text}</pre>
           )}
           <span>
             confidence {task.query.confidence}% &middot; {task.query.row_count ?? 0} rows
           </span>
           {task.query.validation_errors.length > 0 && (
-            <ul className="list-inside list-disc text-amber-700 dark:text-amber-400">
+            <ul className="flex flex-col gap-1 text-amber-600">
               {task.query.validation_errors.map((issue, i) => (
-                <li key={i}>{issue}</li>
+                <li key={i} className="flex items-start gap-1.5">
+                  <WarningCircle size={12} weight="bold" className="mt-0.5 shrink-0" />
+                  {issue}
+                </li>
               ))}
             </ul>
           )}
@@ -178,8 +260,9 @@ function TaskCard({
       )}
 
       {task.attachment && (
-        <div className="text-xs text-zinc-600 dark:text-zinc-400">
-          Classified as &quot;{task.attachment.classification}&quot; ({task.attachment.classification_confidence}% confidence)
+        <div className="text-xs text-muted-foreground">
+          Classified as &quot;{task.attachment.classification}&quot; ({task.attachment.classification_confidence}%
+          confidence)
         </div>
       )}
 
@@ -187,18 +270,20 @@ function TaskCard({
         <button
           onClick={() => onDecision(task.id, "approve")}
           disabled={busy}
-          className="rounded-full bg-green-600 px-4 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-full bg-green-600 px-5 py-2 text-xs font-semibold text-white transition-transform hover:scale-[1.03] disabled:opacity-50 disabled:hover:scale-100"
         >
+          {busy ? <CircleNotch size={13} weight="bold" className="animate-spin" /> : <CheckCircle size={13} weight="bold" />}
           Approve
         </button>
         <button
           onClick={() => onDecision(task.id, "reject")}
           disabled={busy}
-          className="rounded-full bg-red-600 px-4 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-full bg-red-600 px-5 py-2 text-xs font-semibold text-white transition-transform hover:scale-[1.03] disabled:opacity-50 disabled:hover:scale-100"
         >
+          <XCircle size={13} weight="bold" />
           Reject
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 }

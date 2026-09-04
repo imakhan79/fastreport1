@@ -2,6 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ArrowRight,
+  PaintBrush,
+  Database,
+  Paperclip,
+  FileArrowDown,
+  WarningCircle,
+  CheckCircle,
+  XCircle,
+  Clock,
+  CircleNotch,
+  UploadSimple,
+} from "@phosphor-icons/react";
 
 type ReportResult = {
   report: {
@@ -57,6 +71,11 @@ type AttachmentRequirement = {
   status: string;
 };
 
+const fadeIn = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const } },
+};
+
 export default function NewReportPage() {
   const [request, setRequest] = useState("");
   const [loading, setLoading] = useState(false);
@@ -104,271 +123,399 @@ export default function NewReportPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-16 font-sans">
-      <div>
-        <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
-          New Report Request
+    <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-16">
+      <motion.div initial="hidden" animate="show" variants={fadeIn}>
+        <span className="rounded-full border border-[var(--color-border)] bg-card/70 px-4 py-1.5 text-xs font-semibold tracking-wide text-primary">
+          NEW REQUEST
+        </span>
+        <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground">
+          What report do you need?
         </h1>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          Describe what you need in plain language. The AI Orchestrator decides
-          what design, query, and attachment work is required &mdash; you never
-          create those tasks manually.
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Describe it in plain language. The AI Orchestrator decides what design,
+          query, and attachment work is required &mdash; you never create those
+          tasks manually.
         </p>
-        <Link href="/tasks" className="mt-2 inline-block text-sm text-blue-600 dark:text-blue-400">
-          Human review dashboard &rarr;
+        <Link
+          href="/tasks"
+          className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          Human review dashboard <ArrowRight size={14} weight="bold" />
         </Link>
-      </div>
+      </motion.div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <motion.form
+        initial="hidden"
+        animate="show"
+        variants={fadeIn}
+        transition={{ delay: 0.05 }}
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-3"
+      >
         <textarea
           value={request}
           onChange={(e) => setRequest(e.target.value)}
           placeholder="e.g. Create the August sales report comparing it with July, include the approved sales summary, and email it to management."
           rows={4}
-          className="rounded-lg border border-black/10 bg-white p-3 text-sm text-black outline-none focus:border-black/30 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-50"
+          className="rounded-2xl border border-[var(--color-border)] bg-card/70 p-4 text-sm text-foreground outline-none backdrop-blur transition-shadow focus:shadow-[0_0_0_3px_var(--color-primary)] focus:shadow-primary/20"
         />
         <button
           type="submit"
           disabled={loading || request.trim().length === 0}
-          className="self-start rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-50 dark:hover:bg-[#ccc]"
+          className="flex items-center justify-center gap-2 self-start rounded-full bg-primary px-6 py-3 text-sm font-semibold text-on-primary shadow-md shadow-primary/25 transition-transform hover:scale-[1.03] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100"
         >
+          {loading && <CircleNotch size={16} weight="bold" className="animate-spin" />}
           {loading ? "Analyzing request..." : "Submit request"}
         </button>
-      </form>
+      </motion.form>
 
-      {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-400">
-          {error}
-        </div>
-      )}
+      <AnimatePresence>
+        {error && (
+          <Alert icon={WarningCircle} tone="destructive">
+            {error}
+          </Alert>
+        )}
 
-      {result && (
-        <div className="flex flex-col gap-4 rounded-lg border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
-          <div>
-            <div className="flex items-center justify-between">
-              <h2 className="font-medium text-black dark:text-zinc-50">
-                {result.report.title}
-              </h2>
-              <span className="rounded-full bg-black/5 px-2.5 py-1 text-xs font-medium text-black dark:bg-white/10 dark:text-zinc-50">
-                {reportStatus ?? result.report.status}
-              </span>
+        {result && (
+          <Card key="summary">
+            <div>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-semibold text-foreground">{result.report.title}</h2>
+                <StatusBadge status={reportStatus ?? result.report.status} />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Report #{result.report.id} &middot; confidence{" "}
+                {result.report.confidence_overall}% &middot; type {result.plan.report_type}
+              </p>
             </div>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              Report #{result.report.id} &middot; confidence{" "}
-              {result.report.confidence_overall}% &middot; type{" "}
-              {result.plan.report_type}
-            </p>
-          </div>
 
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            {result.plan.reasoning}
-          </p>
+            <p className="text-sm leading-relaxed text-muted-foreground">{result.plan.reasoning}</p>
 
-          <dl className="grid grid-cols-2 gap-3 text-sm">
-            <PlanField label="Design" value={`${result.plan.design.required ? "required" : "not required"} (${result.plan.design.mode})`} />
-            <PlanField label="Query" value={`${result.plan.query.required ? "required" : "not required"} (${result.plan.query.mode})`} />
-            <PlanField
-              label="Attachments"
-              value={
-                result.plan.attachments.required
-                  ? result.plan.attachments.requirements.join(", ") || "required"
-                  : "not required"
-              }
-            />
-            <PlanField label="Approval" value={result.plan.approval.required ? "required" : "not required"} />
-            <PlanField
-              label="Distribution"
-              value={
-                result.plan.distribution.required
-                  ? `${result.plan.distribution.channel}`
-                  : "not required"
-              }
-            />
-          </dl>
-        </div>
-      )}
-
-      {result?.designError && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-400">
-          Design pipeline failed: {result.designError}
-        </div>
-      )}
-
-      {result?.design && (
-        <div className="flex flex-col gap-4 rounded-lg border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
-          <div className="flex items-center justify-between">
-            <h2 className="font-medium text-black dark:text-zinc-50">Design</h2>
-            <span
-              className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                result.design.status === "auto_approved"
-                  ? "bg-green-500/10 text-green-700 dark:text-green-400"
-                  : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-              }`}
-            >
-              {result.design.status === "auto_approved" ? "auto-approved" : "pending human review"}
-            </span>
-          </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            confidence {result.design.confidence}%
-          </p>
-
-          {result.design.qa_issues.length > 0 && (
-            <ul className="list-inside list-disc text-xs text-amber-700 dark:text-amber-400">
-              {result.design.qa_issues.map((issue, i) => (
-                <li key={i}>{issue}</li>
-              ))}
-            </ul>
-          )}
-
-          <div className="flex flex-col gap-3">
-            {result.design.layout.sections
-              .slice()
-              .sort((a, b) => a.order - b.order)
-              .map((section) => (
-                <div key={section.id} className="rounded-md border border-black/10 p-3 dark:border-white/10">
-                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-                    {section.title}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {result.design!.components
-                      .filter((c) => c.section_id === section.id)
-                      .map((c) => (
-                        <span
-                          key={c.id}
-                          className="rounded-md bg-black/5 px-2 py-1 text-xs text-black dark:bg-white/10 dark:text-zinc-50"
-                        >
-                          {c.title} ({c.type === "chart" ? c.chart_type : c.type})
-                        </span>
-                      ))}
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-
-      {attachmentRequirements.length > 0 && (
-        <div className="flex flex-col gap-4 rounded-lg border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
-          <h2 className="font-medium text-black dark:text-zinc-50">Attachments</h2>
-          <div className="flex flex-col gap-3">
-            {attachmentRequirements.map((req) => (
-              <AttachmentRequirementRow
-                key={req.id}
-                requirement={req}
-                onUpdated={(updated) => {
-                  setAttachmentRequirements((prev) =>
-                    prev.map((r) => (r.id === updated.id ? updated : r))
-                  );
-                  if (result) refreshReport(result.report.id);
-                }}
+            <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
+              <PlanField
+                label="Design"
+                value={`${result.plan.design.required ? "required" : "not required"} (${result.plan.design.mode})`}
               />
-            ))}
-          </div>
-        </div>
-      )}
+              <PlanField
+                label="Query"
+                value={`${result.plan.query.required ? "required" : "not required"} (${result.plan.query.mode})`}
+              />
+              <PlanField
+                label="Attachments"
+                value={
+                  result.plan.attachments.required
+                    ? result.plan.attachments.requirements.join(", ") || "required"
+                    : "not required"
+                }
+              />
+              <PlanField label="Approval" value={result.plan.approval.required ? "required" : "not required"} />
+              <PlanField
+                label="Distribution"
+                value={result.plan.distribution.required ? `${result.plan.distribution.channel}` : "not required"}
+              />
+            </dl>
+          </Card>
+        )}
 
-      {exports.length > 0 && (
-        <div className="flex flex-col gap-3 rounded-lg border border-green-500/30 bg-green-500/5 p-5">
-          <h2 className="font-medium text-black dark:text-zinc-50">Report Ready</h2>
-          <div className="flex gap-3">
-            {exports.map((exp) =>
-              exp.url ? (
-                <a
-                  key={exp.id}
-                  href={exp.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-full bg-green-600 px-4 py-1.5 text-xs font-medium text-white"
-                >
-                  Download {exp.format.toUpperCase()}
-                </a>
-              ) : null
+        {result?.designError && (
+          <Alert icon={WarningCircle} tone="destructive">
+            Design pipeline failed: {result.designError}
+          </Alert>
+        )}
+
+        {result?.design && (
+          <Card key="design">
+            <CardHeader icon={PaintBrush} title="Design">
+              <StatusPill
+                tone={result.design.status === "auto_approved" ? "success" : "warning"}
+                label={result.design.status === "auto_approved" ? "auto-approved" : "pending human review"}
+              />
+            </CardHeader>
+            <p className="text-xs text-muted-foreground">confidence {result.design.confidence}%</p>
+
+            {result.design.qa_issues.length > 0 && (
+              <IssueList issues={result.design.qa_issues} />
             )}
-          </div>
-        </div>
-      )}
 
-      {result?.queryError && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-400">
-          Query pipeline failed: {result.queryError}
-        </div>
-      )}
+            <div className="flex flex-col gap-3">
+              {result.design.layout.sections
+                .slice()
+                .sort((a, b) => a.order - b.order)
+                .map((section) => (
+                  <div key={section.id} className="rounded-xl border border-[var(--color-border)] p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {section.title}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {result.design!.components
+                        .filter((c) => c.section_id === section.id)
+                        .map((c) => (
+                          <span
+                            key={c.id}
+                            className="rounded-lg bg-muted px-2.5 py-1 text-xs text-foreground"
+                          >
+                            {c.title} ({c.type === "chart" ? c.chart_type : c.type})
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </Card>
+        )}
 
-      {result?.query && (
-        <div className="flex flex-col gap-4 rounded-lg border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
-          <div className="flex items-center justify-between">
-            <h2 className="font-medium text-black dark:text-zinc-50">Query</h2>
-            <span
-              className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                result.query.status === "executed"
-                  ? "bg-green-500/10 text-green-700 dark:text-green-400"
-                  : result.query.status === "failed"
-                    ? "bg-red-500/10 text-red-700 dark:text-red-400"
-                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-              }`}
-            >
-              {result.query.status === "executed"
-                ? "executed"
-                : result.query.status === "failed"
-                  ? "failed"
-                  : "pending human review"}
-            </span>
-          </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            confidence {result.query.confidence}% &middot; {result.query.row_count ?? 0} rows
-          </p>
-
-          {result.query.sql_text && (
-            <pre className="overflow-x-auto rounded-md bg-black/5 p-3 text-xs text-black dark:bg-white/10 dark:text-zinc-50">
-              {result.query.sql_text}
-            </pre>
-          )}
-
-          {result.query.validation_errors.length > 0 && (
-            <ul className="list-inside list-disc text-xs text-amber-700 dark:text-amber-400">
-              {result.query.validation_errors.map((issue, i) => (
-                <li key={i}>{issue}</li>
+        {attachmentRequirements.length > 0 && (
+          <Card key="attachments">
+            <CardHeader icon={Paperclip} title="Attachments" />
+            <div className="flex flex-col gap-3">
+              {attachmentRequirements.map((req) => (
+                <AttachmentRequirementRow
+                  key={req.id}
+                  requirement={req}
+                  onUpdated={(updated) => {
+                    setAttachmentRequirements((prev) =>
+                      prev.map((r) => (r.id === updated.id ? updated : r))
+                    );
+                    if (result) refreshReport(result.report.id);
+                  }}
+                />
               ))}
-            </ul>
-          )}
+            </div>
+          </Card>
+        )}
 
-          {result.query.result_preview.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr>
-                    {Object.keys(result.query.result_preview[0]).map((col) => (
-                      <th key={col} className="border-b border-black/10 px-2 py-1 text-zinc-400 dark:border-white/10">
-                        {col}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.query.result_preview.slice(0, 10).map((row, i) => (
-                    <tr key={i}>
-                      {Object.values(row).map((val, j) => (
-                        <td key={j} className="border-b border-black/5 px-2 py-1 text-black dark:border-white/5 dark:text-zinc-50">
-                          {String(val)}
-                        </td>
+        {exports.length > 0 && (
+          <motion.div
+            key="exports"
+            initial="hidden"
+            animate="show"
+            exit="hidden"
+            variants={fadeIn}
+            className="flex flex-col gap-3 rounded-2xl border border-green-500/30 bg-green-500/5 p-6"
+          >
+            <CardHeader icon={CheckCircle} title="Report Ready" iconTone="success" />
+            <div className="flex flex-wrap gap-3">
+              {exports.map((exp) =>
+                exp.url ? (
+                  <a
+                    key={exp.id}
+                    href={exp.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-full bg-green-600 px-4 py-2 text-xs font-semibold text-white transition-transform hover:scale-[1.03]"
+                  >
+                    <FileArrowDown size={14} weight="bold" />
+                    Download {exp.format.toUpperCase()}
+                  </a>
+                ) : null
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {result?.queryError && (
+          <Alert icon={WarningCircle} tone="destructive">
+            Query pipeline failed: {result.queryError}
+          </Alert>
+        )}
+
+        {result?.query && (
+          <Card key="query">
+            <CardHeader icon={Database} title="Query">
+              <StatusPill
+                tone={
+                  result.query.status === "executed"
+                    ? "success"
+                    : result.query.status === "failed"
+                      ? "destructive"
+                      : "warning"
+                }
+                label={
+                  result.query.status === "executed"
+                    ? "executed"
+                    : result.query.status === "failed"
+                      ? "failed"
+                      : "pending human review"
+                }
+              />
+            </CardHeader>
+            <p className="text-xs text-muted-foreground">
+              confidence {result.query.confidence}% &middot; {result.query.row_count ?? 0} rows
+            </p>
+
+            {result.query.sql_text && (
+              <pre className="overflow-x-auto rounded-xl bg-[#0f172a] p-4 text-xs text-slate-100">
+                {result.query.sql_text}
+              </pre>
+            )}
+
+            {result.query.validation_errors.length > 0 && (
+              <IssueList issues={result.query.validation_errors} />
+            )}
+
+            {result.query.result_preview.length > 0 && (
+              <div className="overflow-x-auto rounded-xl border border-[var(--color-border)]">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="bg-muted">
+                      {Object.keys(result.query.result_preview[0]).map((col) => (
+                        <th key={col} className="px-3 py-2 font-semibold text-muted-foreground">
+                          {col}
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+                  </thead>
+                  <tbody>
+                    {result.query.result_preview.slice(0, 10).map((row, i) => (
+                      <tr key={i} className="border-t border-[var(--color-border)]">
+                        {Object.values(row).map((val, j) => (
+                          <td key={j} className="px-3 py-2 text-foreground">
+                            {String(val)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-const ATTACHMENT_STATUS_STYLE: Record<string, string> = {
-  approved: "bg-green-500/10 text-green-700 dark:text-green-400",
-  requested: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  uploaded: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
-  pending: "bg-black/5 text-black dark:bg-white/10 dark:text-zinc-50",
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial="hidden"
+      animate="show"
+      exit="hidden"
+      variants={fadeIn}
+      className="flex flex-col gap-4 rounded-2xl border border-[var(--color-border)] bg-card/70 p-6 backdrop-blur"
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function CardHeader({
+  icon: IconComponent,
+  title,
+  iconTone = "primary",
+  children,
+}: {
+  icon: React.ComponentType<{ size?: number; weight?: "bold" | "regular" | "fill"; className?: string }>;
+  title: string;
+  iconTone?: "primary" | "success";
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2.5">
+        <span
+          className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+            iconTone === "success" ? "bg-green-500/15 text-green-600" : "bg-muted text-primary"
+          }`}
+        >
+          <IconComponent size={16} weight="bold" aria-hidden="true" />
+        </span>
+        <h2 className="font-semibold text-foreground">{title}</h2>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Alert({
+  icon: IconComponent,
+  tone,
+  children,
+}: {
+  icon: React.ComponentType<{ size?: number; weight?: "bold" }>;
+  tone: "destructive";
+  children: React.ReactNode;
+}) {
+  return (
+    <motion.div
+      initial="hidden"
+      animate="show"
+      exit="hidden"
+      variants={fadeIn}
+      className={`flex items-start gap-2.5 rounded-2xl border p-4 text-sm ${
+        tone === "destructive"
+          ? "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400"
+          : ""
+      }`}
+    >
+      <IconComponent size={18} weight="bold" />
+      <span>{children}</span>
+    </motion.div>
+  );
+}
+
+function IssueList({ issues }: { issues: string[] }) {
+  return (
+    <ul className="flex flex-col gap-1 text-xs text-amber-700 dark:text-amber-400">
+      {issues.map((issue, i) => (
+        <li key={i} className="flex items-start gap-1.5">
+          <WarningCircle size={14} weight="bold" className="mt-0.5 shrink-0" />
+          {issue}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const STATUS_TONE: Record<string, "muted" | "primary" | "success" | "warning"> = {
+  analyzing: "muted",
+  designing: "primary",
+  querying: "primary",
+  attachments_pending: "primary",
+  qa: "primary",
+  pending_approval: "warning",
+  approved: "success",
+  generating: "primary",
+  exporting: "primary",
+  distributing: "primary",
+  completed: "success",
+  failed: "warning",
+  cancelled: "muted",
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const tone = STATUS_TONE[status] ?? "muted";
+  return <StatusPill tone={tone} label={status.replace(/_/g, " ")} />;
+}
+
+function StatusPill({
+  tone,
+  label,
+}: {
+  tone: "muted" | "primary" | "success" | "warning" | "destructive";
+  label: string;
+}) {
+  const toneClasses = {
+    muted: "bg-muted text-muted-foreground",
+    primary: "bg-primary/10 text-primary",
+    success: "bg-green-500/10 text-green-700 dark:text-green-400",
+    warning: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+    destructive: "bg-red-500/10 text-red-700 dark:text-red-400",
+  }[tone];
+
+  return (
+    <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${toneClasses}`}>
+      {label}
+    </span>
+  );
+}
+
+const ATTACHMENT_TONE: Record<string, "success" | "warning" | "primary" | "muted"> = {
+  approved: "success",
+  requested: "warning",
+  uploaded: "primary",
+  pending: "muted",
 };
 
 function AttachmentRequirementRow({
@@ -409,34 +556,46 @@ function AttachmentRequirementRow({
   }
 
   return (
-    <div className="rounded-md border border-black/10 p-3 dark:border-white/10">
+    <div className="rounded-xl border border-[var(--color-border)] p-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-black dark:text-zinc-50">
-          {requirement.requirement_key}
-        </span>
-        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${ATTACHMENT_STATUS_STYLE[requirement.status] ?? ""}`}>
-          {requirement.status}
-        </span>
+        <span className="text-sm font-medium text-foreground">{requirement.requirement_key}</span>
+        <StatusPill tone={ATTACHMENT_TONE[requirement.status] ?? "muted"} label={requirement.status} />
       </div>
 
       {requirement.status !== "approved" && (
-        <div className="mt-2 flex items-center gap-2">
-          <input
-            type="file"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="text-xs text-zinc-500 dark:text-zinc-400"
-          />
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <label className="flex cursor-pointer items-center gap-1.5 rounded-full border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted">
+            <UploadSimple size={14} weight="bold" />
+            {file ? file.name : "Choose file"}
+            <input
+              type="file"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="hidden"
+            />
+          </label>
           <button
             onClick={handleUpload}
             disabled={!file || uploading}
-            className="rounded-full bg-foreground px-3 py-1.5 text-xs font-medium text-background disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-on-primary disabled:opacity-50"
           >
+            {uploading && <CircleNotch size={12} weight="bold" className="animate-spin" />}
             {uploading ? "Uploading..." : "Upload"}
           </button>
         </div>
       )}
 
-      {message && <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{message}</p>}
+      {message && (
+        <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
+          {message.startsWith("approved") ? (
+            <CheckCircle size={14} weight="bold" className="mt-0.5 shrink-0 text-green-600" />
+          ) : message.startsWith("rejected") ? (
+            <XCircle size={14} weight="bold" className="mt-0.5 shrink-0 text-red-600" />
+          ) : (
+            <Clock size={14} weight="bold" className="mt-0.5 shrink-0 text-amber-600" />
+          )}
+          {message}
+        </p>
+      )}
     </div>
   );
 }
@@ -444,8 +603,8 @@ function AttachmentRequirementRow({
 function PlanField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs uppercase tracking-wide text-zinc-400">{label}</dt>
-      <dd className="text-black dark:text-zinc-50">{value}</dd>
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 text-foreground">{value}</dd>
     </div>
   );
 }
