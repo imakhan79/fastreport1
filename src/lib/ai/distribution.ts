@@ -87,7 +87,7 @@ export async function distributeReport(
   try {
     const resend = getResendClient();
     const { error } = await resend.emails.send({
-      from: "FastReport <onboarding@resend.dev>",
+      from: "DataReportQ <onboarding@resend.dev>",
       to: recipients,
       subject: `Report ready: ${title}`,
       html: `<p>Your report "<strong>${title}</strong>" is ready.</p><ul>${linksHtml}</ul><p>Links expire in 7 days.</p>`,

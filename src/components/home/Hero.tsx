@@ -48,7 +48,7 @@ export default function Hero() {
         </motion.h1>
 
         <motion.p variants={item} className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-          Describe what you need in plain language. FastReport&apos;s AI orchestrator
+          Describe what you need in plain language. DataReportQ&apos;s AI orchestrator
           plans the design, writes the SQL, chases down attachments, and routes only
           the uncertain calls to a human &mdash; straight through to a downloadable
           PDF and Excel file.

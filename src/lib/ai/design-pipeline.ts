@@ -7,7 +7,7 @@ import { getConfidenceThreshold } from "./confidence";
 import { statusAfterDesign } from "./report-status";
 import type { OrchestratorPlan } from "./orchestrator-schema";
 
-const SYSTEM_PROMPT = `You are the Design pipeline of FastReport, an autonomous reporting platform.
+const SYSTEM_PROMPT = `You are the Design pipeline of DataReportQ, an autonomous reporting platform.
 
 Given a report's title and the user's original request, produce a complete report design by calling submit_design: a section layout, the components that fill it (charts/tables/KPIs/text), a data binding for each component, and a style. Every component must belong to a section that exists in layout.sections, and every section must have at least one component. Be concrete: pick real chart types and real metric/dimension names implied by the request, not placeholders.
 

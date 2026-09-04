@@ -40,7 +40,7 @@ export async function ensureDefaultOrgAndUser(): Promise<{
     const { data: createdUser, error: createUserError } = await admin.auth.admin.createUser({
       email: SYSTEM_USER_EMAIL,
       email_confirm: true,
-      user_metadata: { full_name: "FastReport System" },
+      user_metadata: { full_name: "DataReportQ System" },
     });
     if (createUserError) throw createUserError;
     userId = createdUser.user.id;

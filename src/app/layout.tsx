@@ -8,9 +8,9 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "FastReport - Autonomous Reporting",
+  title: "DataReportQ - Autonomous Reporting",
   description:
-    "FastReport plans, designs, queries, and approves your reports automatically - no manual Design, Query, or Attachment tasks.",
+    "DataReportQ plans, designs, queries, and approves your reports automatically - no manual Design, Query, or Attachment tasks.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

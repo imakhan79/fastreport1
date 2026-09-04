@@ -12,7 +12,7 @@ import {
  */
 export const ORCHESTRATION_CONFIDENCE_THRESHOLD = 85;
 
-const SYSTEM_PROMPT = `You are the AI Orchestrator for FastReport, an autonomous reporting platform.
+const SYSTEM_PROMPT = `You are the AI Orchestrator for DataReportQ, an autonomous reporting platform.
 
 Your only job: read a user's natural-language report request and produce a structured execution plan by calling the submit_plan function. You do not generate the report yourself - later automated pipelines (design, query, attachment) read your plan and do that work.
 

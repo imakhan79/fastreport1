@@ -23,7 +23,7 @@ function buildSystemPrompt(orgId: number, tables: SchemaTable[]): string {
     .map((t) => `- ${t.name}(${t.columns.map((c) => `${c.name}: ${c.type}`).join(", ")})`)
     .join("\n");
 
-  return `You are the Query pipeline of FastReport, an autonomous reporting platform.
+  return `You are the Query pipeline of DataReportQ, an autonomous reporting platform.
 
 Given a report's title and the user's original request, write a single read-only PostgreSQL SELECT statement that answers it, using ONLY this schema:
 ${schemaDescription}

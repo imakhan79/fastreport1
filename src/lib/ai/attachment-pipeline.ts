@@ -102,7 +102,7 @@ export async function requestMissingAttachments(
   }
 }
 
-const CLASSIFICATION_SYSTEM_PROMPT = `You are the Attachment pipeline of FastReport, an autonomous reporting platform.
+const CLASSIFICATION_SYSTEM_PROMPT = `You are the Attachment pipeline of DataReportQ, an autonomous reporting platform.
 
 You will be shown a document and a required document type. Classify what the document actually is, and judge whether it satisfies the requirement. Call submit_classification with your judgment.
 
