@@ -47,6 +47,7 @@ type ReportResult = {
   } | null;
   queryError: string | null;
   attachmentRequirements: AttachmentRequirement[];
+  exports: { id: number; format: string; url: string | null }[];
 };
 
 type AttachmentRequirement = {
@@ -62,6 +63,17 @@ export default function NewReportPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ReportResult | null>(null);
   const [attachmentRequirements, setAttachmentRequirements] = useState<AttachmentRequirement[]>([]);
+  const [exports, setExports] = useState<{ id: number; format: string; url: string | null }[]>([]);
+  const [reportStatus, setReportStatus] = useState<string | null>(null);
+
+  async function refreshReport(reportId: number) {
+    const res = await fetch(`/api/reports/${reportId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    setAttachmentRequirements(data.attachmentRequirements ?? []);
+    setExports(data.exports ?? []);
+    setReportStatus(data.report?.status ?? null);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -81,6 +93,8 @@ export default function NewReportPage() {
       } else {
         setResult(data);
         setAttachmentRequirements(data.attachmentRequirements ?? []);
+        setExports(data.exports ?? []);
+        setReportStatus(data.report?.status ?? null);
       }
     } catch {
       setError("Network error contacting the orchestrator.");
@@ -136,7 +150,7 @@ export default function NewReportPage() {
                 {result.report.title}
               </h2>
               <span className="rounded-full bg-black/5 px-2.5 py-1 text-xs font-medium text-black dark:bg-white/10 dark:text-zinc-50">
-                {result.report.status}
+                {reportStatus ?? result.report.status}
               </span>
             </div>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -241,13 +255,35 @@ export default function NewReportPage() {
               <AttachmentRequirementRow
                 key={req.id}
                 requirement={req}
-                onUpdated={(updated) =>
+                onUpdated={(updated) => {
                   setAttachmentRequirements((prev) =>
                     prev.map((r) => (r.id === updated.id ? updated : r))
-                  )
-                }
+                  );
+                  if (result) refreshReport(result.report.id);
+                }}
               />
             ))}
+          </div>
+        </div>
+      )}
+
+      {exports.length > 0 && (
+        <div className="flex flex-col gap-3 rounded-lg border border-green-500/30 bg-green-500/5 p-5">
+          <h2 className="font-medium text-black dark:text-zinc-50">Report Ready</h2>
+          <div className="flex gap-3">
+            {exports.map((exp) =>
+              exp.url ? (
+                <a
+                  key={exp.id}
+                  href={exp.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full bg-green-600 px-4 py-1.5 text-xs font-medium text-white"
+                >
+                  Download {exp.format.toUpperCase()}
+                </a>
+              ) : null
+            )}
           </div>
         </div>
       )}

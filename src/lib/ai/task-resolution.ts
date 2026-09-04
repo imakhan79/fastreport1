@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../supabase/database.types";
+import { tryGenerateReport } from "./report-generation";
+import type { OrchestratorPlan } from "./orchestrator-schema";
 
 export class TaskResolutionError extends Error {}
 
@@ -88,4 +90,15 @@ export async function resolveTask(
     entity_id: task.related_entity_id,
     details: { task_id: task.id, task_type: task.task_type },
   });
+
+  if (decision === "approve" && task.report_id) {
+    const { data: report } = await admin.from("reports").select("*").eq("id", task.report_id).single();
+    if (report?.structured_plan) {
+      try {
+        await tryGenerateReport(admin, report, report.structured_plan as unknown as OrchestratorPlan);
+      } catch (error) {
+        console.error("Report generation failure after task approval:", error);
+      }
+    }
+  }
 }

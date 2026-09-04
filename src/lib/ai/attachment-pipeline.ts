@@ -7,6 +7,8 @@ import {
   type AttachmentClassification,
 } from "./attachment-schema";
 import { getConfidenceThreshold } from "./confidence";
+import { tryGenerateReport } from "./report-generation";
+import type { OrchestratorPlan } from "./orchestrator-schema";
 
 const DEADLINE_HOURS = 24;
 
@@ -336,6 +338,17 @@ export async function processAttachmentUpload(
       entity_id: attachment.id,
       details: { classification, threshold },
     });
+  }
+
+  if (decision === "approved" && requirement.report_id) {
+    const { data: report } = await admin.from("reports").select("*").eq("id", requirement.report_id).single();
+    if (report?.structured_plan) {
+      try {
+        await tryGenerateReport(admin, report, report.structured_plan as unknown as OrchestratorPlan);
+      } catch (error) {
+        console.error("Report generation failure after attachment approval:", error);
+      }
+    }
   }
 
   const { data: finalAttachment } = await admin

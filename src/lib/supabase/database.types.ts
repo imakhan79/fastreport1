@@ -300,6 +300,26 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["tasks"]["Insert"]>;
         Relationships: [];
       };
+      report_exports: {
+        Row: {
+          id: number;
+          org_id: number;
+          report_id: number;
+          format: string;
+          storage_path: string | null;
+          generated_at: string;
+        };
+        Insert: {
+          id?: number;
+          org_id: number;
+          report_id: number;
+          format: string;
+          storage_path?: string | null;
+          generated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["report_exports"]["Insert"]>;
+        Relationships: [];
+      };
       confidence_thresholds: {
         Row: { id: number; org_id: number; action_type: string; threshold: number };
         Insert: { id?: number; org_id: number; action_type: string; threshold?: number };

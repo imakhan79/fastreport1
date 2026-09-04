@@ -6,6 +6,7 @@ import { initialStatusFor } from "@/lib/ai/report-status";
 import { runDesignPipeline, DesignPipelineError } from "@/lib/ai/design-pipeline";
 import { runQueryPipeline, QueryPipelineError } from "@/lib/ai/query-pipeline";
 import { requestMissingAttachments } from "@/lib/ai/attachment-pipeline";
+import { tryGenerateReport } from "@/lib/ai/report-generation";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -103,11 +104,30 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const { data: reportAfterPipelines } = await admin.from("reports").select("*").eq("id", report.id).single();
+
+  try {
+    if (reportAfterPipelines) {
+      await tryGenerateReport(admin, reportAfterPipelines, plan);
+    }
+  } catch (error) {
+    console.error("Report generation failure:", error);
+  }
+
   const { data: finalReport } = await admin.from("reports").select("*").eq("id", report.id).single();
   const { data: attachmentRequirements } = await admin
     .from("attachment_requirements")
     .select("*")
     .eq("report_id", report.id);
+
+  const { data: exports } = await admin.from("report_exports").select("*").eq("report_id", report.id);
+  const exportsWithUrls = await Promise.all(
+    (exports ?? []).map(async (exp) => {
+      if (!exp.storage_path) return { ...exp, url: null };
+      const { data } = await admin.storage.from("report-exports").createSignedUrl(exp.storage_path, 3600);
+      return { ...exp, url: data?.signedUrl ?? null };
+    })
+  );
 
   return NextResponse.json({
     report: finalReport ?? report,
@@ -117,5 +137,6 @@ export async function POST(req: NextRequest) {
     query,
     queryError,
     attachmentRequirements: attachmentRequirements ?? [],
+    exports: exportsWithUrls,
   });
 }
