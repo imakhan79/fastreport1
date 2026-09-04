@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 type ReportResult = {
   report: {
@@ -99,6 +100,9 @@ export default function NewReportPage() {
           what design, query, and attachment work is required &mdash; you never
           create those tasks manually.
         </p>
+        <Link href="/tasks" className="mt-2 inline-block text-sm text-blue-600 dark:text-blue-400">
+          Human review dashboard &rarr;
+        </Link>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
