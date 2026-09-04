@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function Home() {
@@ -36,6 +37,13 @@ export default async function Home() {
               : error?.message}
           </p>
         </div>
+
+        <Link
+          href="/reports/new"
+          className="rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc]"
+        >
+          New Report Request
+        </Link>
       </main>
     </div>
   );
