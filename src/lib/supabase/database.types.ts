@@ -300,6 +300,30 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["tasks"]["Insert"]>;
         Relationships: [];
       };
+      distributions: {
+        Row: {
+          id: number;
+          org_id: number;
+          report_id: number;
+          channel: string;
+          recipients: string[];
+          status: string;
+          sent_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          org_id: number;
+          report_id: number;
+          channel: string;
+          recipients?: string[];
+          status?: string;
+          sent_at?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["distributions"]["Insert"]>;
+        Relationships: [];
+      };
       report_exports: {
         Row: {
           id: number;
