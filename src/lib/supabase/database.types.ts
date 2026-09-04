@@ -122,6 +122,56 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["audit_log"]["Insert"]>;
         Relationships: [];
       };
+      notifications: {
+        Row: {
+          id: number;
+          org_id: number;
+          user_id: string;
+          task_id: number | null;
+          type: string;
+          message: string;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          org_id: number;
+          user_id: string;
+          task_id?: number | null;
+          type: string;
+          message: string;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notifications"]["Insert"]>;
+        Relationships: [];
+      };
+      attachments: {
+        Row: {
+          id: number;
+          org_id: number;
+          requirement_id: number | null;
+          storage_path: string;
+          uploaded_by: string | null;
+          classification: string | null;
+          classification_confidence: number | null;
+          validation_status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          org_id: number;
+          requirement_id?: number | null;
+          storage_path: string;
+          uploaded_by?: string | null;
+          classification?: string | null;
+          classification_confidence?: number | null;
+          validation_status?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["attachments"]["Insert"]>;
+        Relationships: [];
+      };
       data_sources: {
         Row: {
           id: number;

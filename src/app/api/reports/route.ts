@@ -5,6 +5,7 @@ import { analyzeReportRequest, OrchestratorError } from "@/lib/ai/orchestrator";
 import { initialStatusFor } from "@/lib/ai/report-status";
 import { runDesignPipeline, DesignPipelineError } from "@/lib/ai/design-pipeline";
 import { runQueryPipeline, QueryPipelineError } from "@/lib/ai/query-pipeline";
+import { requestMissingAttachments } from "@/lib/ai/attachment-pipeline";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -59,6 +60,12 @@ export async function POST(req: NextRequest) {
     );
     if (attachmentInsertError) {
       console.error("Failed to insert attachment requirements:", attachmentInsertError);
+    } else {
+      try {
+        await requestMissingAttachments(admin, report);
+      } catch (error) {
+        console.error("Attachment pipeline failure:", error);
+      }
     }
   }
 
@@ -97,6 +104,18 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: finalReport } = await admin.from("reports").select("*").eq("id", report.id).single();
+  const { data: attachmentRequirements } = await admin
+    .from("attachment_requirements")
+    .select("*")
+    .eq("report_id", report.id);
 
-  return NextResponse.json({ report: finalReport ?? report, plan, design, designError, query, queryError });
+  return NextResponse.json({
+    report: finalReport ?? report,
+    plan,
+    design,
+    designError,
+    query,
+    queryError,
+    attachmentRequirements: attachmentRequirements ?? [],
+  });
 }

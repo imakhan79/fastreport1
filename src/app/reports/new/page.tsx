@@ -45,6 +45,14 @@ type ReportResult = {
     result_preview: Record<string, unknown>[];
   } | null;
   queryError: string | null;
+  attachmentRequirements: AttachmentRequirement[];
+};
+
+type AttachmentRequirement = {
+  id: number;
+  requirement_key: string;
+  description: string | null;
+  status: string;
 };
 
 export default function NewReportPage() {
@@ -52,6 +60,7 @@ export default function NewReportPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ReportResult | null>(null);
+  const [attachmentRequirements, setAttachmentRequirements] = useState<AttachmentRequirement[]>([]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -70,6 +79,7 @@ export default function NewReportPage() {
         setError(data.error ?? "Something went wrong.");
       } else {
         setResult(data);
+        setAttachmentRequirements(data.attachmentRequirements ?? []);
       }
     } catch {
       setError("Network error contacting the orchestrator.");
@@ -219,6 +229,25 @@ export default function NewReportPage() {
         </div>
       )}
 
+      {attachmentRequirements.length > 0 && (
+        <div className="flex flex-col gap-4 rounded-lg border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
+          <h2 className="font-medium text-black dark:text-zinc-50">Attachments</h2>
+          <div className="flex flex-col gap-3">
+            {attachmentRequirements.map((req) => (
+              <AttachmentRequirementRow
+                key={req.id}
+                requirement={req}
+                onUpdated={(updated) =>
+                  setAttachmentRequirements((prev) =>
+                    prev.map((r) => (r.id === updated.id ? updated : r))
+                  )
+                }
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {result?.queryError && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-400">
           Query pipeline failed: {result.queryError}
@@ -291,6 +320,83 @@ export default function NewReportPage() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+const ATTACHMENT_STATUS_STYLE: Record<string, string> = {
+  approved: "bg-green-500/10 text-green-700 dark:text-green-400",
+  requested: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  uploaded: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  pending: "bg-black/5 text-black dark:bg-white/10 dark:text-zinc-50",
+};
+
+function AttachmentRequirementRow({
+  requirement,
+  onUpdated,
+}: {
+  requirement: AttachmentRequirement;
+  onUpdated: (updated: AttachmentRequirement) => void;
+}) {
+  const [file, setFile] = useState<globalThis.File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function handleUpload() {
+    if (!file) return;
+    setUploading(true);
+    setMessage(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("requirementId", String(requirement.id));
+
+      const res = await fetch("/api/attachments/upload", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(data.error ?? "Upload failed.");
+      } else {
+        setMessage(`${data.decision}: ${data.classification.reasoning}`);
+        onUpdated({ ...requirement, status: data.decision === "approved" ? "approved" : data.decision === "rejected" ? "requested" : "uploaded" });
+      }
+    } catch {
+      setMessage("Network error uploading file.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-black/10 p-3 dark:border-white/10">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-black dark:text-zinc-50">
+          {requirement.requirement_key}
+        </span>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${ATTACHMENT_STATUS_STYLE[requirement.status] ?? ""}`}>
+          {requirement.status}
+        </span>
+      </div>
+
+      {requirement.status !== "approved" && (
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            type="file"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="text-xs text-zinc-500 dark:text-zinc-400"
+          />
+          <button
+            onClick={handleUpload}
+            disabled={!file || uploading}
+            className="rounded-full bg-foreground px-3 py-1.5 text-xs font-medium text-background disabled:opacity-50"
+          >
+            {uploading ? "Uploading..." : "Upload"}
+          </button>
+        </div>
+      )}
+
+      {message && <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{message}</p>}
     </div>
   );
 }

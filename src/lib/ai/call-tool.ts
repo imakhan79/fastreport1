@@ -4,6 +4,11 @@ import { getGeminiClient, getBackupGeminiClient, ORCHESTRATOR_MODEL } from "./ge
 
 export class AiToolCallError extends Error {}
 
+export type ContentPart =
+  | { type: "text"; text: string }
+  | { type: "document"; data: string; mime_type: string }
+  | { type: "image"; data: string; mime_type: string };
+
 function isRateLimitError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return message.includes("429") || /quota/i.test(message);
@@ -11,7 +16,13 @@ function isRateLimitError(error: unknown): boolean {
 
 async function createInteraction(
   client: GoogleGenAI,
-  opts: { systemInstruction: string; input: string; toolName: string; toolDescription: string; toolParameters: object }
+  opts: {
+    systemInstruction: string;
+    input: string | ContentPart[];
+    toolName: string;
+    toolDescription: string;
+    toolParameters: object;
+  }
 ) {
   return client.interactions.create({
     model: ORCHESTRATOR_MODEL,
@@ -31,7 +42,7 @@ async function createInteraction(
 
 export async function callGeminiTool<T>(opts: {
   systemInstruction: string;
-  input: string;
+  input: string | ContentPart[];
   toolName: string;
   toolDescription: string;
   toolParameters: object;
