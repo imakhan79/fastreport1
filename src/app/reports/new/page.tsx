@@ -35,6 +35,16 @@ type ReportResult = {
     }[];
   } | null;
   designError: string | null;
+  query: {
+    id: number;
+    confidence: number | null;
+    status: string;
+    sql_text: string | null;
+    validation_errors: string[];
+    row_count: number | null;
+    result_preview: Record<string, unknown>[];
+  } | null;
+  queryError: string | null;
 };
 
 export default function NewReportPage() {
@@ -206,6 +216,79 @@ export default function NewReportPage() {
                 </div>
               ))}
           </div>
+        </div>
+      )}
+
+      {result?.queryError && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-400">
+          Query pipeline failed: {result.queryError}
+        </div>
+      )}
+
+      {result?.query && (
+        <div className="flex flex-col gap-4 rounded-lg border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
+          <div className="flex items-center justify-between">
+            <h2 className="font-medium text-black dark:text-zinc-50">Query</h2>
+            <span
+              className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                result.query.status === "executed"
+                  ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                  : result.query.status === "failed"
+                    ? "bg-red-500/10 text-red-700 dark:text-red-400"
+                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+              }`}
+            >
+              {result.query.status === "executed"
+                ? "executed"
+                : result.query.status === "failed"
+                  ? "failed"
+                  : "pending human review"}
+            </span>
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            confidence {result.query.confidence}% &middot; {result.query.row_count ?? 0} rows
+          </p>
+
+          {result.query.sql_text && (
+            <pre className="overflow-x-auto rounded-md bg-black/5 p-3 text-xs text-black dark:bg-white/10 dark:text-zinc-50">
+              {result.query.sql_text}
+            </pre>
+          )}
+
+          {result.query.validation_errors.length > 0 && (
+            <ul className="list-inside list-disc text-xs text-amber-700 dark:text-amber-400">
+              {result.query.validation_errors.map((issue, i) => (
+                <li key={i}>{issue}</li>
+              ))}
+            </ul>
+          )}
+
+          {result.query.result_preview.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr>
+                    {Object.keys(result.query.result_preview[0]).map((col) => (
+                      <th key={col} className="border-b border-black/10 px-2 py-1 text-zinc-400 dark:border-white/10">
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.query.result_preview.slice(0, 10).map((row, i) => (
+                    <tr key={i}>
+                      {Object.values(row).map((val, j) => (
+                        <td key={j} className="border-b border-black/5 px-2 py-1 text-black dark:border-white/5 dark:text-zinc-50">
+                          {String(val)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

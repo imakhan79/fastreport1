@@ -4,6 +4,7 @@ import { ensureDefaultOrgAndUser } from "@/lib/bootstrap";
 import { analyzeReportRequest, OrchestratorError } from "@/lib/ai/orchestrator";
 import { initialStatusFor } from "@/lib/ai/report-status";
 import { runDesignPipeline, DesignPipelineError } from "@/lib/ai/design-pipeline";
+import { runQueryPipeline, QueryPipelineError } from "@/lib/ai/query-pipeline";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -83,7 +84,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  let query = null;
+  let queryError: string | null = null;
+  if (plan.query.required) {
+    try {
+      const result = await runQueryPipeline(admin, report, plan);
+      query = result.query;
+    } catch (error) {
+      queryError = error instanceof QueryPipelineError ? error.message : "Query pipeline failed unexpectedly.";
+      console.error("Query pipeline failure:", error);
+    }
+  }
+
   const { data: finalReport } = await admin.from("reports").select("*").eq("id", report.id).single();
 
-  return NextResponse.json({ report: finalReport ?? report, plan, design, designError });
+  return NextResponse.json({ report: finalReport ?? report, plan, design, designError, query, queryError });
 }

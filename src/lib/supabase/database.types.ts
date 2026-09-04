@@ -122,6 +122,68 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["audit_log"]["Insert"]>;
         Relationships: [];
       };
+      data_sources: {
+        Row: {
+          id: number;
+          org_id: number;
+          name: string;
+          kind: string;
+          connection_ref: string | null;
+          schema_cache: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          org_id: number;
+          name: string;
+          kind?: string;
+          connection_ref?: string | null;
+          schema_cache?: Json | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["data_sources"]["Insert"]>;
+        Relationships: [];
+      };
+      queries: {
+        Row: {
+          id: number;
+          org_id: number;
+          report_id: number;
+          data_source_id: number | null;
+          natural_language_request: string | null;
+          sql_text: string | null;
+          tables: string[];
+          fields: Json;
+          confidence: number | null;
+          status: string;
+          validation_errors: Json;
+          result_ref: string | null;
+          result_preview: Json;
+          row_count: number | null;
+          executed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          org_id: number;
+          report_id: number;
+          data_source_id?: number | null;
+          natural_language_request?: string | null;
+          sql_text?: string | null;
+          tables?: string[];
+          fields?: Json;
+          confidence?: number | null;
+          status?: string;
+          validation_errors?: Json;
+          result_ref?: string | null;
+          result_preview?: Json;
+          row_count?: number | null;
+          executed_at?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["queries"]["Insert"]>;
+        Relationships: [];
+      };
       designs: {
         Row: {
           id: number;
