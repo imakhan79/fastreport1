@@ -70,6 +70,44 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["reports"]["Insert"]>;
         Relationships: [];
       };
+      report_schedules: {
+        Row: {
+          id: number;
+          org_id: number;
+          created_by: string;
+          title: string | null;
+          natural_language_request: string;
+          frequency: string;
+          day_of_week: number | null;
+          day_of_month: number | null;
+          hour_utc: number;
+          status: string;
+          last_run_at: string | null;
+          last_report_id: number | null;
+          next_run_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          org_id: number;
+          created_by: string;
+          title?: string | null;
+          natural_language_request: string;
+          frequency: string;
+          day_of_week?: number | null;
+          day_of_month?: number | null;
+          hour_utc?: number;
+          status?: string;
+          last_run_at?: string | null;
+          last_report_id?: number | null;
+          next_run_at: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["report_schedules"]["Insert"]>;
+        Relationships: [];
+      };
       attachment_requirements: {
         Row: {
           id: number;
