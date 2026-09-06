@@ -9,6 +9,9 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Pause,
+  Play,
+  Trash,
 } from "@phosphor-icons/react";
 
 export type AttachmentRequirement = {
@@ -17,6 +20,72 @@ export type AttachmentRequirement = {
   description: string | null;
   status: string;
 };
+
+export type Schedule = {
+  id: number;
+  title: string | null;
+  natural_language_request: string;
+  frequency: "daily" | "weekly" | "monthly";
+  day_of_week: number | null;
+  day_of_month: number | null;
+  hour_utc: number;
+  status: "active" | "paused";
+  last_run_at: string | null;
+  next_run_at: string;
+};
+
+const SCHEDULE_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+export function describeSchedule(s: Schedule): string {
+  const time = `${String(s.hour_utc).padStart(2, "0")}:00 UTC`;
+  if (s.frequency === "daily") return `Daily at ${time}`;
+  if (s.frequency === "weekly") return `Weekly on ${SCHEDULE_DAYS[s.day_of_week ?? 0]} at ${time}`;
+  return `Monthly on day ${s.day_of_month} at ${time}`;
+}
+
+export function ScheduleRow({
+  schedule,
+  onToggle,
+  onDelete,
+}: {
+  schedule: Schedule;
+  onToggle: (schedule: Schedule) => void;
+  onDelete: (id: number) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-card/50 p-4">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-foreground">
+          {schedule.title ?? schedule.natural_language_request}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{describeSchedule(schedule)}</p>
+        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+          <Clock size={12} weight="bold" />
+          {schedule.status === "paused"
+            ? "paused"
+            : `next run ${new Date(schedule.next_run_at).toLocaleString()}`}
+          {schedule.last_run_at && <> &middot; last ran {new Date(schedule.last_run_at).toLocaleString()}</>}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <button
+          onClick={() => onToggle(schedule)}
+          title={schedule.status === "active" ? "Pause" : "Resume"}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          {schedule.status === "active" ? <Pause size={14} weight="bold" /> : <Play size={14} weight="bold" />}
+        </button>
+        <button
+          onClick={() => onDelete(schedule.id)}
+          title="Delete"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-red-500/10 hover:text-red-600"
+        >
+          <Trash size={14} weight="bold" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export const fadeIn = {
   hidden: { opacity: 0, y: 16 },

@@ -2,30 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { CircleNotch, Trash, Pause, Play, Clock } from "@phosphor-icons/react";
-import { fadeIn } from "@/components/report-blocks";
-
-type Schedule = {
-  id: number;
-  title: string | null;
-  natural_language_request: string;
-  frequency: "daily" | "weekly" | "monthly";
-  day_of_week: number | null;
-  day_of_month: number | null;
-  hour_utc: number;
-  status: "active" | "paused";
-  last_run_at: string | null;
-  next_run_at: string;
-};
+import { CircleNotch } from "@phosphor-icons/react";
+import { fadeIn, ScheduleRow, type Schedule } from "@/components/report-blocks";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-function describe(s: Schedule): string {
-  const time = `${String(s.hour_utc).padStart(2, "0")}:00 UTC`;
-  if (s.frequency === "daily") return `Daily at ${time}`;
-  if (s.frequency === "weekly") return `Weekly on ${DAYS[s.day_of_week ?? 0]} at ${time}`;
-  return `Monthly on day ${s.day_of_month} at ${time}`;
-}
 
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -212,38 +192,7 @@ export default function SchedulesPage() {
 
       <div className="flex flex-col gap-2">
         {schedules.map((s) => (
-          <div
-            key={s.id}
-            className="flex items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-card/50 p-4"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">
-                {s.title ?? s.natural_language_request}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">{describe(s)}</p>
-              <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock size={12} weight="bold" />
-                {s.status === "paused" ? "paused" : `next run ${new Date(s.next_run_at).toLocaleString()}`}
-                {s.last_run_at && <> &middot; last ran {new Date(s.last_run_at).toLocaleString()}</>}
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                onClick={() => toggleStatus(s)}
-                title={s.status === "active" ? "Pause" : "Resume"}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                {s.status === "active" ? <Pause size={14} weight="bold" /> : <Play size={14} weight="bold" />}
-              </button>
-              <button
-                onClick={() => remove(s.id)}
-                title="Delete"
-                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-red-500/10 hover:text-red-600"
-              >
-                <Trash size={14} weight="bold" />
-              </button>
-            </div>
-          </div>
+          <ScheduleRow key={s.id} schedule={s} onToggle={toggleStatus} onDelete={remove} />
         ))}
       </div>
     </div>

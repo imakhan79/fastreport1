@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, FileArrowDown, CircleNotch, Plus } from "@phosphor-icons/react";
-import { fadeIn, StatusBadge } from "@/components/report-blocks";
+import { ArrowRight, FileArrowDown, CircleNotch, Plus, Clock } from "@phosphor-icons/react";
+import { fadeIn, StatusBadge, ScheduleRow, type Schedule } from "@/components/report-blocks";
 
 type ReportSummary = {
   id: number;
@@ -29,6 +29,8 @@ function formatDate(iso: string): string {
 export default function ReportCatalogPage() {
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [schedulesLoading, setSchedulesLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +46,36 @@ export default function ReportCatalogPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await fetch("/api/schedules");
+      if (!res.ok || cancelled) return;
+      const data = await res.json();
+      if (cancelled) return;
+      setSchedules(data.schedules ?? []);
+      setSchedulesLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function toggleSchedule(schedule: Schedule) {
+    const nextStatus = schedule.status === "active" ? "paused" : "active";
+    setSchedules((prev) => prev.map((s) => (s.id === schedule.id ? { ...s, status: nextStatus } : s)));
+    await fetch(`/api/schedules/${schedule.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: nextStatus }),
+    });
+  }
+
+  async function removeSchedule(scheduleId: number) {
+    setSchedules((prev) => prev.filter((s) => s.id !== scheduleId));
+    await fetch(`/api/schedules/${scheduleId}`, { method: "DELETE" });
+  }
 
   return (
     <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-6 py-16">
@@ -70,6 +102,25 @@ export default function ReportCatalogPage() {
           New
         </Link>
       </motion.div>
+
+      {!schedulesLoading && schedules.length > 0 && (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+              <Clock size={14} weight="bold" />
+              Scheduled ({schedules.length})
+            </h2>
+            <Link href="/schedules" className="text-xs font-medium text-primary hover:underline">
+              Manage schedules
+            </Link>
+          </div>
+          <div className="flex flex-col gap-2">
+            {schedules.map((s) => (
+              <ScheduleRow key={s.id} schedule={s} onToggle={toggleSchedule} onDelete={removeSchedule} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
