@@ -8,6 +8,41 @@ import { runQueryPipeline, QueryPipelineError } from "@/lib/ai/query-pipeline";
 import { requestMissingAttachments } from "@/lib/ai/attachment-pipeline";
 import { advanceReportWorkflow } from "@/lib/ai/workflow";
 
+export async function GET() {
+  const admin = createAdminClient();
+  const { orgId } = await ensureDefaultOrgAndUser();
+
+  const { data: reports, error } = await admin
+    .from("reports")
+    .select("id, title, natural_language_request, status, confidence_overall, created_at, updated_at")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    return NextResponse.json({ error: "Failed to load reports." }, { status: 500 });
+  }
+
+  const reportIds = reports.map((r) => r.id);
+  const { data: exports } = reportIds.length
+    ? await admin.from("report_exports").select("report_id, format").in("report_id", reportIds)
+    : { data: [] };
+
+  const formatsByReport = new Map<number, string[]>();
+  for (const exp of exports ?? []) {
+    const list = formatsByReport.get(exp.report_id) ?? [];
+    list.push(exp.format);
+    formatsByReport.set(exp.report_id, list);
+  }
+
+  const enriched = reports.map((report) => ({
+    ...report,
+    exportFormats: formatsByReport.get(report.id) ?? [],
+  }));
+
+  return NextResponse.json({ reports: enriched });
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const naturalLanguageRequest = body?.request;
