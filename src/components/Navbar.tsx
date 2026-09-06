@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { List, X } from "@phosphor-icons/react";
+import NotificationBell from "./NotificationBell";
 
 const LINKS = [
   { href: "/#pipeline", label: "How it works" },
   { href: "/#features", label: "Features" },
   { href: "/tasks", label: "Review dashboard" },
+  { href: "/activity", label: "Activity" },
 ];
 
 export default function Navbar() {
@@ -51,15 +53,19 @@ export default function Navbar() {
           >
             Try a request
           </Link>
+          <NotificationBell />
         </div>
 
-        <button
-          aria-label={menuOpen ? "Close menu" : "Open menu"}
-          onClick={() => setMenuOpen((v) => !v)}
-          className="flex h-11 w-11 items-center justify-center rounded-full text-foreground md:hidden"
-        >
-          {menuOpen ? <X size={22} weight="bold" /> : <List size={22} weight="bold" />}
-        </button>
+        <div className="flex items-center gap-1 md:hidden">
+          <NotificationBell />
+          <button
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            onClick={() => setMenuOpen((v) => !v)}
+            className="flex h-11 w-11 items-center justify-center rounded-full text-foreground"
+          >
+            {menuOpen ? <X size={22} weight="bold" /> : <List size={22} weight="bold" />}
+          </button>
+        </div>
       </nav>
 
       {menuOpen && (
