@@ -62,6 +62,7 @@ export interface Database {
           structured_plan: Json | null;
           status: string;
           confidence_overall: number | null;
+          export_formats: string[];
           created_at: string;
           updated_at: string;
         };
@@ -75,6 +76,7 @@ export interface Database {
           structured_plan?: Json | null;
           status?: string;
           confidence_overall?: number | null;
+          export_formats?: string[];
           created_at?: string;
           updated_at?: string;
         };

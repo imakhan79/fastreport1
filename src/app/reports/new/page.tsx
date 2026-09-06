@@ -12,6 +12,8 @@ import {
   WarningCircle,
   CheckCircle,
   CircleNotch,
+  UploadSimple,
+  X,
 } from "@phosphor-icons/react";
 import {
   fadeIn,
@@ -82,6 +84,16 @@ export default function NewReportPage() {
   const [exports, setExports] = useState<{ id: number; format: string; url: string | null }[]>([]);
   const [reportStatus, setReportStatus] = useState<string | null>(null);
 
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importedInfo, setImportedInfo] = useState<{ name: string; rowCount: number; columns: string[] } | null>(
+    null
+  );
+
+  const [wantPdf, setWantPdf] = useState(true);
+  const [wantExcel, setWantExcel] = useState(true);
+
   async function refreshReport(reportId: number) {
     const res = await fetch(`/api/reports/${reportId}`);
     if (!res.ok) return;
@@ -91,17 +103,50 @@ export default function NewReportPage() {
     setReportStatus(data.report?.status ?? null);
   }
 
+  async function handleImport(file: File) {
+    setImportFile(file);
+    setImporting(true);
+    setImportError(null);
+    setImportedInfo(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/reports/import", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) {
+        setImportError(data.error ?? "Could not import that file.");
+        setImportFile(null);
+      } else {
+        setImportedInfo({ name: data.dataSource.name, rowCount: data.rowCount, columns: data.columns });
+      }
+    } catch {
+      setImportError("Network error importing file.");
+      setImportFile(null);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function clearImport() {
+    setImportFile(null);
+    setImportedInfo(null);
+    setImportError(null);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setResult(null);
 
+    const exportFormats = [...(wantPdf ? ["pdf"] : []), ...(wantExcel ? ["excel"] : [])];
+
     try {
       const res = await fetch("/api/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ request }),
+        body: JSON.stringify({ request, exportFormats }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -164,9 +209,68 @@ export default function NewReportPage() {
           rows={4}
           className="rounded-2xl border border-[var(--color-border)] bg-card/70 p-4 text-sm text-foreground outline-none backdrop-blur transition-shadow focus:shadow-[0_0_0_3px_var(--color-primary)] focus:shadow-primary/20"
         />
+
+        {!importedInfo && (
+          <label className="flex w-fit cursor-pointer items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-card/60 px-4 py-2 text-xs font-medium text-muted-foreground backdrop-blur transition-colors hover:bg-card">
+            {importing ? (
+              <CircleNotch size={13} weight="bold" className="animate-spin" />
+            ) : (
+              <UploadSimple size={13} weight="bold" />
+            )}
+            {importing ? "Importing..." : "Import a CSV or Excel file as data (optional)"}
+            <input
+              type="file"
+              accept=".csv,.xlsx"
+              disabled={importing}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleImport(file);
+                e.target.value = "";
+              }}
+              className="hidden"
+            />
+          </label>
+        )}
+
+        {importedInfo && (
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-2.5 text-xs">
+            <span className="flex items-center gap-1.5 text-green-700 dark:text-green-400">
+              <CheckCircle size={14} weight="bold" />
+              Imported {importFile?.name} &middot; {importedInfo.rowCount} rows &middot;{" "}
+              {importedInfo.columns.length} columns
+            </span>
+            <button
+              type="button"
+              onClick={clearImport}
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X size={12} weight="bold" />
+            </button>
+          </div>
+        )}
+
+        {importError && (
+          <p className="flex items-start gap-1.5 text-xs text-red-600">
+            <WarningCircle size={14} weight="bold" className="mt-0.5 shrink-0" />
+            {importError}
+          </p>
+        )}
+
+        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+          <span className="font-medium uppercase tracking-wide">Export as</span>
+          <label className="flex items-center gap-1.5">
+            <input type="checkbox" checked={wantPdf} onChange={(e) => setWantPdf(e.target.checked)} />
+            PDF
+          </label>
+          <label className="flex items-center gap-1.5">
+            <input type="checkbox" checked={wantExcel} onChange={(e) => setWantExcel(e.target.checked)} />
+            Excel
+          </label>
+        </div>
+
         <button
           type="submit"
-          disabled={loading || request.trim().length === 0}
+          disabled={loading || importing || request.trim().length === 0 || (!wantPdf && !wantExcel)}
           className="flex items-center justify-center gap-2 self-start rounded-full bg-primary px-6 py-3 text-sm font-semibold text-on-primary shadow-md shadow-primary/25 transition-transform hover:scale-[1.03] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100"
         >
           {loading && <CircleNotch size={16} weight="bold" className="animate-spin" />}

@@ -26,7 +26,8 @@ export async function runReportPipeline(
   admin: SupabaseClient<Database>,
   orgId: number,
   userId: string,
-  naturalLanguageRequest: string
+  naturalLanguageRequest: string,
+  exportFormats: ("pdf" | "excel")[] = ["pdf", "excel"]
 ) {
   let plan;
   try {
@@ -48,6 +49,7 @@ export async function runReportPipeline(
       structured_plan: plan,
       status: initialStatusFor(plan),
       confidence_overall: plan.confidence,
+      export_formats: exportFormats.length > 0 ? exportFormats : ["pdf", "excel"],
     })
     .select("*")
     .single();

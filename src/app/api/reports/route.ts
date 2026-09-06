@@ -45,6 +45,8 @@ export async function GET() {
   return NextResponse.json({ reports: enriched });
 }
 
+const VALID_FORMATS = ["pdf", "excel"] as const;
+
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const naturalLanguageRequest = body?.request;
@@ -52,6 +54,10 @@ export async function POST(req: NextRequest) {
   if (typeof naturalLanguageRequest !== "string" || naturalLanguageRequest.trim().length === 0) {
     return NextResponse.json({ error: "Missing 'request' string." }, { status: 400 });
   }
+
+  const requestedFormats = Array.isArray(body?.exportFormats)
+    ? body.exportFormats.filter((f: unknown): f is "pdf" | "excel" => VALID_FORMATS.includes(f as never))
+    : undefined;
 
   let orgId: number, userId: string;
   try {
@@ -64,7 +70,7 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
 
   try {
-    const result = await runReportPipeline(admin, orgId, userId, naturalLanguageRequest);
+    const result = await runReportPipeline(admin, orgId, userId, naturalLanguageRequest, requestedFormats);
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof ReportPipelineError) {

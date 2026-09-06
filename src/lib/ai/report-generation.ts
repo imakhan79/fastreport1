@@ -268,12 +268,16 @@ export async function generateAndExportReport(
 
   await admin.from("reports").update({ status: "generating" }).eq("id", report.id);
 
-  let pdfBuffer: Buffer;
-  let excelBuffer: Buffer;
+  const wantedFormats = report.export_formats.length > 0 ? report.export_formats : ["pdf", "excel"];
+  const wantPdf = wantedFormats.includes("pdf");
+  const wantExcel = wantedFormats.includes("excel");
+
+  let pdfBuffer: Buffer | null = null;
+  let excelBuffer: Buffer | null = null;
   try {
     [pdfBuffer, excelBuffer] = await Promise.all([
-      renderPdf(report, design ?? null, query ?? null),
-      renderExcel(report, design ?? null, query ?? null),
+      wantPdf ? renderPdf(report, design ?? null, query ?? null) : Promise.resolve(null),
+      wantExcel ? renderExcel(report, design ?? null, query ?? null) : Promise.resolve(null),
     ]);
   } catch (error) {
     throw new ReportGenerationError(
@@ -298,14 +302,15 @@ export async function generateAndExportReport(
   const excelPath = `${report.id}/report.xlsx`;
 
   const [pdfUpload, excelUpload] = await Promise.all([
-    admin.storage.from(EXPORT_BUCKET).upload(pdfPath, pdfBuffer, {
-      contentType: "application/pdf",
-      upsert: true,
-    }),
-    admin.storage.from(EXPORT_BUCKET).upload(excelPath, excelBuffer, {
-      contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      upsert: true,
-    }),
+    pdfBuffer
+      ? admin.storage.from(EXPORT_BUCKET).upload(pdfPath, pdfBuffer, { contentType: "application/pdf", upsert: true })
+      : Promise.resolve({ error: null }),
+    excelBuffer
+      ? admin.storage.from(EXPORT_BUCKET).upload(excelPath, excelBuffer, {
+          contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          upsert: true,
+        })
+      : Promise.resolve({ error: null }),
   ]);
 
   if (pdfUpload.error || excelUpload.error) {
@@ -314,10 +319,13 @@ export async function generateAndExportReport(
     );
   }
 
-  await admin.from("report_exports").insert([
-    { org_id: report.org_id, report_id: report.id, format: "pdf", storage_path: pdfPath },
-    { org_id: report.org_id, report_id: report.id, format: "excel", storage_path: excelPath },
-  ]);
+  const exportRows = [
+    ...(pdfBuffer ? [{ org_id: report.org_id, report_id: report.id, format: "pdf", storage_path: pdfPath }] : []),
+    ...(excelBuffer ? [{ org_id: report.org_id, report_id: report.id, format: "excel", storage_path: excelPath }] : []),
+  ];
+  if (exportRows.length > 0) {
+    await admin.from("report_exports").insert(exportRows);
+  }
 
   await admin.from("audit_log").insert({
     org_id: report.org_id,
