@@ -68,7 +68,7 @@ export async function runDesignPipeline(
   }
 
   let issues = runDesignQa(design);
-  let generatedBy: "ai" = "ai";
+  const generatedBy = "ai" as const;
 
   if (issues.length > 0) {
     await admin.from("audit_log").insert({

@@ -11,9 +11,22 @@ const FORBIDDEN_KEYWORDS =
  * reject obviously out-of-scope table references, not a substitute for
  * the READ ONLY transaction below, which is the actual security boundary.
  */
+const CLAUSE_BOUNDARY =
+  "where|group\\s+by|order\\s+by|having|limit|offset|left|right|inner|outer|cross|natural|join|on|window|union|except|intersect|;|$";
+
 function extractReferencedTables(sql: string): string[] {
-  const matches = [...sql.matchAll(/\b(?:from|join)\s+([a-zA-Z_][a-zA-Z0-9_]*)/gi)];
-  return [...new Set(matches.map((m) => m[1].toLowerCase()))];
+  const tables = new Set<string>();
+  const clauseRe = new RegExp(`\\b(?:from|join)\\s+([\\s\\S]*?)(?=\\b(?:${CLAUSE_BOUNDARY})\\b)`, "gi");
+
+  for (const match of sql.matchAll(clauseRe)) {
+    for (const part of match[1].split(",")) {
+      const tableMatch = part.trim().match(/^([a-zA-Z_][a-zA-Z0-9_.]*)/);
+      if (!tableMatch) continue;
+      const name = tableMatch[1].split(".").pop()!;
+      tables.add(name.toLowerCase());
+    }
+  }
+  return [...tables];
 }
 
 export function validateSqlSafety(

@@ -8,6 +8,17 @@ const LINK_EXPIRY_SECONDS = 7 * 24 * 60 * 60; // 7 days - long enough for a reci
 
 export class DistributionError extends Error {}
 
+const HTML_ESCAPES: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => HTML_ESCAPES[char]);
+}
+
 let resendClient: Resend | null = null;
 function getResendClient(): Resend {
   if (!resendClient) resendClient = new Resend(process.env.RESEND_API_KEY);
@@ -68,8 +79,9 @@ export async function distributeReport(
   const validLinks = links.filter((l): l is { format: string; url: string } => l !== null);
 
   const title = report.title ?? report.natural_language_request;
+  const escapedTitle = escapeHtml(title);
   const linksHtml = validLinks
-    .map((l) => `<li><a href="${l.url}">${l.format.toUpperCase()}</a></li>`)
+    .map((l) => `<li><a href="${encodeURI(l.url)}">${escapeHtml(l.format.toUpperCase())}</a></li>`)
     .join("");
 
   const { data: distributionRow } = await admin
@@ -90,7 +102,7 @@ export async function distributeReport(
       from: "DataReportQ <onboarding@resend.dev>",
       to: recipients,
       subject: `Report ready: ${title}`,
-      html: `<p>Your report "<strong>${title}</strong>" is ready.</p><ul>${linksHtml}</ul><p>Links expire in 7 days.</p>`,
+      html: `<p>Your report "<strong>${escapedTitle}</strong>" is ready.</p><ul>${linksHtml}</ul><p>Links expire in 7 days.</p>`,
     });
 
     if (error) throw new DistributionError(error.message);

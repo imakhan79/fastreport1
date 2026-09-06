@@ -58,7 +58,6 @@ export default function TasksPage() {
   const [busyId, setBusyId] = useState<number | null>(null);
 
   async function load() {
-    setLoading(true);
     const res = await fetch("/api/tasks");
     const data = await res.json();
     setTasks(data.tasks ?? []);
@@ -66,7 +65,18 @@ export default function TasksPage() {
   }
 
   useEffect(() => {
-    load();
+    let cancelled = false;
+    (async () => {
+      const res = await fetch("/api/tasks");
+      const data = await res.json();
+      if (!cancelled) {
+        setTasks(data.tasks ?? []);
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function handleDecision(taskId: number, decision: "approve" | "reject") {
