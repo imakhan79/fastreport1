@@ -6,6 +6,7 @@ import {
   validateSqlSafety,
   validateSqlSyntax,
   executeReadOnlyQuery,
+  resolveConnectionString,
   QueryExecutionError,
 } from "./query-executor";
 import { getConfidenceThreshold } from "./confidence";
@@ -84,6 +85,7 @@ export async function runQueryPipeline(
     .from("data_sources")
     .select("*")
     .eq("org_id", report.org_id)
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -96,6 +98,7 @@ export async function runQueryPipeline(
   if (tables.length === 0) {
     throw new QueryPipelineError("Data source has no discoverable tables.");
   }
+  const connectionString = resolveConnectionString(dataSource.connection_ref);
   const allowedTableNames = tables.map((t) => t.name);
   const systemPrompt = buildSystemPrompt(report.org_id, tables);
   const title = report.title ?? report.natural_language_request;
@@ -109,7 +112,7 @@ export async function runQueryPipeline(
 
   let issues = validateSqlSafety(generated.sql, report.org_id, allowedTableNames);
   if (issues.length === 0) {
-    const syntaxError = await validateSqlSyntax(generated.sql);
+    const syntaxError = await validateSqlSyntax(generated.sql, connectionString);
     if (syntaxError) issues = [`SQL syntax/plan error: ${syntaxError}`];
   }
 
@@ -132,7 +135,7 @@ export async function runQueryPipeline(
 
     issues = validateSqlSafety(generated.sql, report.org_id, allowedTableNames);
     if (issues.length === 0) {
-      const syntaxError = await validateSqlSyntax(generated.sql);
+      const syntaxError = await validateSqlSyntax(generated.sql, connectionString);
       if (syntaxError) issues = [`SQL syntax/plan error: ${syntaxError}`];
     }
   }
@@ -143,7 +146,7 @@ export async function runQueryPipeline(
 
   if (issues.length === 0) {
     try {
-      const result = await executeReadOnlyQuery(generated.sql);
+      const result = await executeReadOnlyQuery(generated.sql, connectionString);
       rows = result.rows;
       rowCount = result.rowCount;
     } catch (error) {

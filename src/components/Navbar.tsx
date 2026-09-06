@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/#features", label: "Features" },
   { href: "/reports", label: "Reports" },
   { href: "/schedules", label: "Schedules" },
+  { href: "/data-sources", label: "Connectors" },
   { href: "/tasks", label: "Review dashboard" },
   { href: "/activity", label: "Activity" },
 ];

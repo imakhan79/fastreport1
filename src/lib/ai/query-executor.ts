@@ -69,14 +69,29 @@ export type QueryResult = { rows: Record<string, unknown>[]; rowCount: number };
 
 const MAX_PREVIEW_ROWS = 50;
 const STATEMENT_TIMEOUT_MS = 5000;
+const CONNECT_TIMEOUT_MS = 8000;
+
+/**
+ * The built-in demo data source's connection_ref is a sentinel ("sample_sales"),
+ * not a real DSN - it means "use this app's own DATABASE_URL". Anything that
+ * looks like a real Postgres connection string is used as-is, so user-added
+ * connectors point at their own database instead of the app's.
+ */
+export function resolveConnectionString(connectionRef: string | null): string {
+  if (connectionRef && /^postgres(ql)?:\/\//i.test(connectionRef)) return connectionRef;
+  return process.env.DATABASE_URL!;
+}
 
 /**
  * Executes AI-generated SQL inside a READ ONLY transaction with a short
  * statement timeout - the real enforcement layer, independent of whatever
  * validateSqlSafety already caught by pattern-matching.
  */
-export async function executeReadOnlyQuery(sql: string): Promise<QueryResult> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
+export async function executeReadOnlyQuery(
+  sql: string,
+  connectionString: string = process.env.DATABASE_URL!
+): Promise<QueryResult> {
+  const client = new Client({ connectionString, connectionTimeoutMillis: CONNECT_TIMEOUT_MS });
   try {
     await client.connect();
     await client.query("BEGIN READ ONLY");
@@ -98,8 +113,11 @@ export async function executeReadOnlyQuery(sql: string): Promise<QueryResult> {
 }
 
 /** Syntax/plan check without executing - catches malformed SQL before real execution. */
-export async function validateSqlSyntax(sql: string): Promise<string | null> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
+export async function validateSqlSyntax(
+  sql: string,
+  connectionString: string = process.env.DATABASE_URL!
+): Promise<string | null> {
+  const client = new Client({ connectionString, connectionTimeoutMillis: CONNECT_TIMEOUT_MS });
   try {
     await client.connect();
     await client.query("BEGIN READ ONLY");
@@ -110,6 +128,61 @@ export async function validateSqlSyntax(sql: string): Promise<string | null> {
       return error instanceof Error ? error.message : String(error);
     } finally {
       await client.query("ROLLBACK").catch(() => {});
+    }
+  } finally {
+    await client.end();
+  }
+}
+
+export type IntrospectedTable = { name: string; columns: { name: string; type: string }[] };
+
+const MAX_TABLES = 30;
+const MAX_COLUMNS_PER_TABLE = 40;
+
+export class ConnectionError extends Error {}
+
+/**
+ * Connects to a candidate connection string and discovers its public-schema
+ * tables/columns, in a single READ ONLY transaction with the same statement
+ * timeout as real query execution. Used both to test a new connector and to
+ * populate/refresh its schema_cache.
+ */
+export async function introspectSchema(connectionString: string): Promise<IntrospectedTable[]> {
+  const client = new Client({ connectionString, connectionTimeoutMillis: CONNECT_TIMEOUT_MS });
+  try {
+    await client.connect();
+  } catch (error) {
+    throw new ConnectionError(error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    await client.query("BEGIN READ ONLY");
+    await client.query(`SET LOCAL statement_timeout = ${STATEMENT_TIMEOUT_MS}`);
+    try {
+      const { rows } = await client.query<{ table_name: string; column_name: string; data_type: string }>(
+        `select table_name, column_name, data_type
+         from information_schema.columns
+         where table_schema = 'public'
+         order by table_name, ordinal_position`
+      );
+      await client.query("COMMIT");
+
+      const tables = new Map<string, { name: string; type: string }[]>();
+      for (const row of rows) {
+        if (!tables.has(row.table_name)) {
+          if (tables.size >= MAX_TABLES) continue;
+          tables.set(row.table_name, []);
+        }
+        const columns = tables.get(row.table_name)!;
+        if (columns.length < MAX_COLUMNS_PER_TABLE) {
+          columns.push({ name: row.column_name, type: row.data_type });
+        }
+      }
+
+      return [...tables.entries()].map(([name, columns]) => ({ name, columns }));
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw new ConnectionError(error instanceof Error ? error.message : String(error));
     }
   } finally {
     await client.end();
