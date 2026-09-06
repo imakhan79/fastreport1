@@ -3,6 +3,8 @@ import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
 import type { Database } from "../supabase/database.types";
 import type { OrchestratorPlan } from "./orchestrator-schema";
+import { bindComponent, type DesignComponent } from "./report-binding";
+import { drawBarChart, drawLineChart, drawPieChart, type ChartPoint } from "./pdf-charts";
 
 const EXPORT_BUCKET = "report-exports";
 
@@ -73,35 +75,85 @@ function renderPdf(report: Report, design: Design | null, query: Query | null): 
     doc.fillColor("#000000");
     doc.moveDown(1);
 
+    const rows = (query?.result_preview as Record<string, unknown>[] | undefined) ?? [];
+
     if (design) {
       const layout = design.layout as { sections: { id: string; title: string; order: number }[] };
-      const components = design.components as {
-        id: string;
-        section_id: string;
-        title: string;
-        type: string;
-        chart_type: string;
-      }[];
+      const components = design.components as DesignComponent[];
+      const usableWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+      const leftX = doc.page.margins.left;
 
       for (const section of [...layout.sections].sort((a, b) => a.order - b.order)) {
         doc.fontSize(14).text(section.title);
         doc.moveDown(0.3);
         const sectionComponents = components.filter((c) => c.section_id === section.id);
         doc.fontSize(10);
+
         for (const component of sectionComponents) {
-          const kind = component.type === "chart" ? component.chart_type : component.type;
-          doc.text(`• ${component.title} (${kind})`);
+          const bound = bindComponent(component, rows);
+
+          if (!bound) {
+            const kind = component.type === "chart" ? component.chart_type : component.type;
+            doc.text(`• ${component.title} (${kind})`);
+            continue;
+          }
+
+          if (bound.kind === "kpi") {
+            doc.fontSize(9).fillColor("#666666").text(component.title);
+            doc.fontSize(16).fillColor("#0f172a").text(bound.value);
+            doc.fontSize(10).fillColor("#000000");
+            doc.moveDown(0.4);
+            continue;
+          }
+
+          // bound.kind === "series"
+          doc.fontSize(10).text(component.title);
+          doc.moveDown(0.15);
+
+          if (component.type === "chart") {
+            const chartHeight = 110;
+            if (doc.y + chartHeight > doc.page.height - doc.page.margins.bottom) doc.addPage();
+            const chartX = leftX;
+            const chartY = doc.y;
+            const points: ChartPoint[] = bound.points;
+            const ordered =
+              component.chart_type === "line" ? points : [...points].sort((a, b) => b.value - a.value);
+
+            if (component.chart_type === "line") drawLineChart(doc, chartX, chartY, usableWidth, chartHeight, ordered);
+            else if (component.chart_type === "pie") drawPieChart(doc, chartX, chartY, usableWidth, chartHeight, ordered);
+            else drawBarChart(doc, chartX, chartY, usableWidth, chartHeight, ordered.slice(0, 10));
+
+            doc.y = chartY + chartHeight + 8;
+          } else {
+            // table component bound to a real series - a compact label/value table.
+            doc.fontSize(8);
+            const labelColWidth = usableWidth * 0.6;
+            const valueColWidth = usableWidth - labelColWidth;
+            const tableX = leftX;
+            for (const point of bound.points.slice(0, 15)) {
+              const rowY = doc.y;
+              doc.text(point.label, tableX, rowY, { width: labelColWidth, lineBreak: false });
+              doc.text(point.value.toLocaleString(), tableX + labelColWidth, rowY, {
+                width: valueColWidth,
+                align: "right",
+                lineBreak: false,
+              });
+              doc.y = rowY + doc.currentLineHeight() + 2;
+            }
+            doc.fontSize(10);
+          }
+
+          doc.moveDown(0.5);
         }
-        doc.moveDown(0.8);
+        doc.moveDown(0.5);
       }
     }
 
-    if (query && Array.isArray(query.result_preview) && query.result_preview.length > 0) {
+    if (rows.length > 0) {
       doc.fontSize(14).text("Data");
       doc.moveDown(0.3);
       doc.font("Courier").fontSize(8);
 
-      const rows = query.result_preview as Record<string, unknown>[];
       const columns = Object.keys(rows[0]);
 
       // Courier averages ~0.6x fontSize per character; size columns in
@@ -135,21 +187,56 @@ async function renderExcel(report: Report, design: Design | null, query: Query |
   summary.addRow(["Confidence", report.confidence_overall ?? "n/a"]);
   summary.addRow([]);
 
+  const rows = (query?.result_preview as Record<string, unknown>[] | undefined) ?? [];
+
   if (design) {
     const layout = design.layout as { sections: { id: string; title: string; order: number }[] };
-    const components = design.components as { section_id: string; title: string; type: string; chart_type: string }[];
-    summary.addRow(["Design Sections"]);
+    const components = design.components as DesignComponent[];
+
     for (const section of [...layout.sections].sort((a, b) => a.order - b.order)) {
-      summary.addRow([section.title]);
-      for (const c of components.filter((c) => c.section_id === section.id)) {
-        summary.addRow(["", c.title, c.type === "chart" ? c.chart_type : c.type]);
+      const sectionRow = summary.addRow([section.title]);
+      sectionRow.font = { bold: true, size: 13 };
+
+      for (const component of components.filter((c) => c.section_id === section.id)) {
+        const bound = bindComponent(component, rows);
+
+        if (!bound) {
+          summary.addRow(["", component.title, component.type === "chart" ? component.chart_type : component.type]);
+          continue;
+        }
+
+        if (bound.kind === "kpi") {
+          const kpiRow = summary.addRow(["", component.title, bound.value]);
+          kpiRow.getCell(3).font = { bold: true, size: 14 };
+          continue;
+        }
+
+        const titleRow = summary.addRow(["", component.title]);
+        titleRow.font = { bold: true };
+        summary.addRow(["", bound.categoryLabel, bound.valueLabel]);
+        const firstValueRow = summary.lastRow!.number + 1;
+        for (const point of bound.points.slice(0, 15)) {
+          summary.addRow(["", point.label, point.value]);
+        }
+        const lastValueRow = summary.lastRow!.number;
+
+        if (component.type === "chart" && lastValueRow >= firstValueRow) {
+          try {
+            summary.addConditionalFormatting({
+              ref: `C${firstValueRow}:C${lastValueRow}`,
+              rules: [{ type: "dataBar", priority: 1, gradient: false, cfvo: [{ type: "min" }, { type: "max" }] }],
+            });
+          } catch {
+            // Best-effort visual only - the numbers above are already real either way.
+          }
+        }
       }
+      summary.addRow([]);
     }
   }
 
-  if (query && Array.isArray(query.result_preview) && query.result_preview.length > 0) {
+  if (rows.length > 0) {
     const dataSheet = workbook.addWorksheet("Data");
-    const rows = query.result_preview as Record<string, unknown>[];
     dataSheet.addRow(Object.keys(rows[0]));
     for (const row of rows) {
       dataSheet.addRow(Object.values(row));
