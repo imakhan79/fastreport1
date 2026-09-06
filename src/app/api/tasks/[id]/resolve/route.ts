@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ensureDefaultOrgAndUser } from "@/lib/bootstrap";
+import { getAuthContext, UnauthorizedError } from "@/lib/auth";
 import { resolveTask, TaskResolutionError } from "@/lib/ai/task-resolution";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -16,11 +16,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "decision must be 'approve' or 'reject'." }, { status: 400 });
   }
 
+  let orgId: number, userId: string;
+  try {
+    ({ orgId, userId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
+
   const admin = createAdminClient();
-  const { userId } = await ensureDefaultOrgAndUser();
 
   try {
-    await resolveTask(admin, taskId, decision, userId);
+    await resolveTask(admin, taskId, decision, userId, orgId);
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof TaskResolutionError ? error.message : "Failed to resolve task.";

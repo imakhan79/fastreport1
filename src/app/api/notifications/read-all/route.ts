@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ensureDefaultOrgAndUser } from "@/lib/bootstrap";
+import { getAuthContext, UnauthorizedError } from "@/lib/auth";
 
 export async function POST() {
+  let orgId: number, userId: string;
+  try {
+    ({ orgId, userId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
+
   const admin = createAdminClient();
-  const { orgId, userId } = await ensureDefaultOrgAndUser();
 
   const { error } = await admin
     .from("notifications")

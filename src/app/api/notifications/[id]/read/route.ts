@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ensureDefaultOrgAndUser } from "@/lib/bootstrap";
+import { getAuthContext, UnauthorizedError } from "@/lib/auth";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -9,9 +9,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Invalid notification id." }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  const { orgId, userId } = await ensureDefaultOrgAndUser();
+  let orgId: number, userId: string;
+  try {
+    ({ orgId, userId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
 
+  const admin = createAdminClient();
   const { error } = await admin
     .from("notifications")
     .update({ read_at: new Date().toISOString() })

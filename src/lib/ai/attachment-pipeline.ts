@@ -162,12 +162,14 @@ export async function processAttachmentUpload(
   fileBuffer: Buffer,
   mimeType: string,
   storagePath: string,
-  uploadedBy: string | null
+  uploadedBy: string | null,
+  orgId: number
 ): Promise<AttachmentUploadResult> {
   const { data: requirement, error: requirementError } = await admin
     .from("attachment_requirements")
     .select("*")
     .eq("id", requirementId)
+    .eq("org_id", orgId)
     .single();
 
   if (requirementError || !requirement) {

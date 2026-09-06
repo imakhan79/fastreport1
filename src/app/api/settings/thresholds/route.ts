@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ensureDefaultOrgAndUser } from "@/lib/bootstrap";
+import { getAuthContext, UnauthorizedError } from "@/lib/auth";
 import type { ConfidenceActionType } from "@/lib/ai/confidence";
 
 const ACTION_TYPES: ConfidenceActionType[] = ["design", "query", "attachment_match"];
@@ -17,9 +17,15 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "threshold must be a number between 0 and 100." }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  const { orgId } = await ensureDefaultOrgAndUser();
+  let orgId: number;
+  try {
+    ({ orgId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
 
+  const admin = createAdminClient();
   const { error } = await admin
     .from("confidence_thresholds")
     .upsert({ org_id: orgId, action_type: actionType, threshold }, { onConflict: "org_id,action_type" });

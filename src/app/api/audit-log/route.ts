@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ensureDefaultOrgAndUser } from "@/lib/bootstrap";
+import { getAuthContext, UnauthorizedError } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
+  let orgId: number;
+  try {
+    ({ orgId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
+
   const admin = createAdminClient();
-  const { orgId } = await ensureDefaultOrgAndUser();
 
   const reportIdParam = req.nextUrl.searchParams.get("reportId");
   const reportId = reportIdParam ? Number(reportIdParam) : null;

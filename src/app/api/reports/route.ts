@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ensureDefaultOrgAndUser } from "@/lib/bootstrap";
+import { getAuthContext, UnauthorizedError } from "@/lib/auth";
 import { runReportPipeline, ReportPipelineError } from "@/lib/ai/run-report-pipeline";
 
 export async function GET() {
+  let orgId: number;
+  try {
+    ({ orgId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
+
   const admin = createAdminClient();
-  const { orgId } = await ensureDefaultOrgAndUser();
 
   const { data: reports, error } = await admin
     .from("reports")
@@ -46,8 +53,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing 'request' string." }, { status: 400 });
   }
 
+  let orgId: number, userId: string;
+  try {
+    ({ orgId, userId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
+
   const admin = createAdminClient();
-  const { orgId, userId } = await ensureDefaultOrgAndUser();
 
   try {
     const result = await runReportPipeline(admin, orgId, userId, naturalLanguageRequest);

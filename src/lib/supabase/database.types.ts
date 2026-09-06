@@ -19,6 +19,12 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["organizations"]["Insert"]>;
         Relationships: [];
       };
+      profiles: {
+        Row: { id: string; full_name: string | null; created_at: string };
+        Insert: { id: string; full_name?: string | null; created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
+        Relationships: [];
+      };
       org_members: {
         Row: {
           id: number;

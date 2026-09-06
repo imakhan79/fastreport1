@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ensureDefaultOrgAndUser } from "@/lib/bootstrap";
+import { getAuthContext, UnauthorizedError } from "@/lib/auth";
 import { introspectSchema, ConnectionError } from "@/lib/ai/query-executor";
 
 const CONNECTION_STRING_PATTERN = /^postgres(ql)?:\/\/\S+$/i;
 
 export async function GET() {
+  let orgId: number;
+  try {
+    ({ orgId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
+
   const admin = createAdminClient();
-  const { orgId } = await ensureDefaultOrgAndUser();
 
   const { data: dataSources, error } = await admin
     .from("data_sources")
@@ -35,6 +42,14 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  let orgId: number;
+  try {
+    ({ orgId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
+
   const body = await req.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const connectionString = typeof body?.connectionString === "string" ? body.connectionString.trim() : "";
@@ -65,7 +80,6 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const { orgId } = await ensureDefaultOrgAndUser();
 
   const { data: dataSource, error: insertError } = await admin
     .from("data_sources")

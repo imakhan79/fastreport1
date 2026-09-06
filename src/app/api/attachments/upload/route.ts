@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ensureDefaultOrgAndUser } from "@/lib/bootstrap";
+import { getAuthContext, UnauthorizedError } from "@/lib/auth";
 import { processAttachmentUpload, AttachmentPipelineError } from "@/lib/ai/attachment-pipeline";
 
 const BUCKET = "attachments";
@@ -26,9 +26,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid requirementId." }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  const { userId } = await ensureDefaultOrgAndUser();
+  let userId: string, orgId: number;
+  try {
+    ({ userId, orgId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
 
+  const admin = createAdminClient();
   await ensureBucket(admin);
 
   const arrayBuffer = await file.arrayBuffer();
@@ -50,7 +56,8 @@ export async function POST(req: NextRequest) {
       buffer,
       file.type || "application/octet-stream",
       storagePath,
-      userId
+      userId,
+      orgId
     );
     return NextResponse.json(result);
   } catch (error) {

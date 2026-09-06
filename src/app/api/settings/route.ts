@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ensureDefaultOrgAndUser } from "@/lib/bootstrap";
+import { getAuthContext, UnauthorizedError } from "@/lib/auth";
 import type { ConfidenceActionType } from "@/lib/ai/confidence";
 
 const ACTION_TYPES: ConfidenceActionType[] = ["design", "query", "attachment_match"];
@@ -11,8 +11,15 @@ const DEFAULT_THRESHOLDS: Record<ConfidenceActionType, number> = {
 };
 
 export async function GET() {
+  let orgId: number;
+  try {
+    ({ orgId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
+
   const admin = createAdminClient();
-  const { orgId } = await ensureDefaultOrgAndUser();
 
   const [{ data: organization }, { data: thresholdRows }, { data: memberRows }] = await Promise.all([
     admin.from("organizations").select("id, name, default_distribution_email, created_at").eq("id", orgId).single(),
@@ -41,8 +48,16 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   const body = await req.json().catch(() => null);
+
+  let orgId: number;
+  try {
+    ({ orgId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
+
   const admin = createAdminClient();
-  const { orgId } = await ensureDefaultOrgAndUser();
 
   const update: { name?: string; default_distribution_email?: string | null } = {};
 

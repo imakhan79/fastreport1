@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthContext, UnauthorizedError } from "@/lib/auth";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -8,9 +9,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Invalid report id." }, { status: 400 });
   }
 
+  let orgId: number;
+  try {
+    ({ orgId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
+
   const admin = createAdminClient();
 
-  const { data: report, error } = await admin.from("reports").select("*").eq("id", reportId).single();
+  const { data: report, error } = await admin
+    .from("reports")
+    .select("*")
+    .eq("id", reportId)
+    .eq("org_id", orgId)
+    .single();
   if (error || !report) {
     return NextResponse.json({ error: "Report not found." }, { status: 404 });
   }

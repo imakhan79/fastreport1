@@ -21,12 +21,14 @@ export async function resolveTask(
   admin: SupabaseClient<Database>,
   taskId: number,
   decision: Decision,
-  resolvedBy: string | null
+  resolvedBy: string | null,
+  orgId: number
 ): Promise<void> {
   const { data: task, error: taskError } = await admin
     .from("tasks")
     .select("*")
     .eq("id", taskId)
+    .eq("org_id", orgId)
     .single();
 
   if (taskError || !task) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ensureDefaultOrgAndUser } from "@/lib/bootstrap";
+import { getAuthContext, UnauthorizedError } from "@/lib/auth";
 import { resolveConnectionString, introspectSchema, ConnectionError } from "@/lib/ai/query-executor";
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -10,9 +10,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "Invalid data source id." }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  const { orgId } = await ensureDefaultOrgAndUser();
+  let orgId: number;
+  try {
+    ({ orgId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
 
+  const admin = createAdminClient();
   const { error } = await admin.from("data_sources").delete().eq("id", dataSourceId).eq("org_id", orgId);
 
   if (error) {
@@ -34,9 +40,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Unsupported action." }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  const { orgId } = await ensureDefaultOrgAndUser();
+  let orgId: number;
+  try {
+    ({ orgId } = await getAuthContext());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    throw error;
+  }
 
+  const admin = createAdminClient();
   const { data: dataSource, error: fetchError } = await admin
     .from("data_sources")
     .select("*")
