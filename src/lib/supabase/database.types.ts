@@ -9,8 +9,13 @@ export interface Database {
   public: {
     Tables: {
       organizations: {
-        Row: { id: number; name: string; created_at: string };
-        Insert: { id?: number; name: string; created_at?: string };
+        Row: { id: number; name: string; default_distribution_email: string | null; created_at: string };
+        Insert: {
+          id?: number;
+          name: string;
+          default_distribution_email?: string | null;
+          created_at?: string;
+        };
         Update: Partial<Database["public"]["Tables"]["organizations"]["Insert"]>;
         Relationships: [];
       };

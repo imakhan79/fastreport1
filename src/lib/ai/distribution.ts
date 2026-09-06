@@ -29,12 +29,20 @@ type Report = Database["public"]["Tables"]["reports"]["Row"];
 
 /**
  * No real recipient resolution built yet - "email it to management" has
- * no actual address to resolve to, so this falls back to an org-configured
- * default. Documented limitation, not a guess: without DEFAULT_DISTRIBUTION_EMAIL
- * set, distribution can't proceed and the report stays in 'distributing'.
+ * no actual address to resolve to, so this falls back to a configured
+ * default: the org's own setting (Settings page) if set, else the global
+ * DEFAULT_DISTRIBUTION_EMAIL env var. Documented limitation, not a guess:
+ * without either configured, distribution can't proceed and the report
+ * stays in 'distributing'.
  */
-function resolveRecipients(): string[] {
-  const raw = process.env.DEFAULT_DISTRIBUTION_EMAIL;
+async function resolveRecipients(admin: SupabaseClient<Database>, orgId: number): Promise<string[]> {
+  const { data: org } = await admin
+    .from("organizations")
+    .select("default_distribution_email")
+    .eq("id", orgId)
+    .maybeSingle();
+
+  const raw = org?.default_distribution_email || process.env.DEFAULT_DISTRIBUTION_EMAIL;
   if (!raw) return [];
   return raw.split(",").map((e) => e.trim()).filter(Boolean);
 }
@@ -54,7 +62,7 @@ export async function distributeReport(
     throw new DistributionError(`Unsupported distribution channel: ${plan.distribution.channel}`);
   }
 
-  const recipients = resolveRecipients();
+  const recipients = await resolveRecipients(admin, report.org_id);
   if (recipients.length === 0) {
     await admin.from("audit_log").insert({
       org_id: report.org_id,
@@ -65,7 +73,7 @@ export async function distributeReport(
       entity_id: report.id,
       details: {},
     });
-    throw new DistributionError("No DEFAULT_DISTRIBUTION_EMAIL configured - cannot resolve a real recipient.");
+    throw new DistributionError("No distribution recipient configured - set one in Settings.");
   }
 
   const { data: exports } = await admin.from("report_exports").select("*").eq("report_id", report.id);

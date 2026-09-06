@@ -14,6 +14,7 @@ const LINKS = [
   { href: "/data-sources", label: "Connectors" },
   { href: "/tasks", label: "Review dashboard" },
   { href: "/activity", label: "Activity" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export default function Navbar() {
