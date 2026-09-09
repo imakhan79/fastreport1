@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
   try {
     parsed = await parseUploadedFile(buffer, file.name);
   } catch (error) {
+    console.error("parseUploadedFile failed:", error);
     const message = error instanceof FileImportError ? error.message : "Could not read that file.";
     return NextResponse.json({ error: message }, { status: 400 });
   }
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
   try {
     result = await createImportedDataSource(orgId, name, parsed);
   } catch (error) {
+    console.error("createImportedDataSource failed:", error);
     const message = error instanceof FileImportError ? error.message : "Could not load the file's data.";
     return NextResponse.json({ error: message }, { status: 500 });
   }

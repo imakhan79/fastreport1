@@ -152,8 +152,8 @@ export async function createImportedDataSource(
   const types = inferColumnType(parsed.columns, parsed.rows);
 
   const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
   try {
+    await client.connect();
     const columnDefs = parsed.columns.map((c) => `"${c}" ${types[c] === "numeric" ? "numeric" : "text"}`).join(", ");
     await client.query(`CREATE TABLE public."${tableName}" (org_id bigint not null, ${columnDefs})`);
 
@@ -181,7 +181,7 @@ export async function createImportedDataSource(
       `Failed to load file into a queryable table: ${error instanceof Error ? error.message : String(error)}`
     );
   } finally {
-    await client.end();
+    await client.end().catch(() => {});
   }
 
   return {
