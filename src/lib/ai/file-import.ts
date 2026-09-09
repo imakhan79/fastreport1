@@ -27,35 +27,22 @@ export async function parseUploadedFile(buffer: Buffer, filename: string): Promi
     );
   }
 
-  const sheet = workbook.worksheets[0];
-  const rowCount = Math.max(sheet?.rowCount ?? 0, sheet?.actualRowCount ?? 0);
-  if (!sheet || rowCount < 1) {
-    throw new FileImportError("File has no data rows below the header.");
-  }
-
-  // The header isn't always row 1 - exports often have a title row or blank
-  // spacer rows above the real column headers, so scan for the first row
-  // that actually has content in more than one cell.
-  const HEADER_SEARCH_LIMIT = 10;
-  let headerRowNumber = -1;
-  let rawHeaders: string[] = [];
-  for (let r = 1; r <= Math.min(rowCount, HEADER_SEARCH_LIMIT); r++) {
-    const candidate = sheet.getRow(r);
-    const cells: string[] = [];
-    candidate.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-      const text = String(cell.value ?? "").trim();
-      if (text) cells[colNumber - 1] = text;
-    });
-    const filled = cells.filter(Boolean).length;
-    if (filled >= 2) {
-      headerRowNumber = r;
-      rawHeaders = cells.map((v, i) => v || `column_${i + 1}`);
+  // Some exports put a cover/instructions/summary sheet first and the real
+  // data table on a later sheet, so check every sheet and use the first one
+  // where an actual header + data table can be found.
+  let found: { sheet: ExcelJS.Worksheet; rowCount: number; headerRowNumber: number; rawHeaders: string[] } | null = null;
+  for (const candidateSheet of workbook.worksheets) {
+    const detected = findHeaderRow(candidateSheet);
+    if (detected) {
+      found = { sheet: candidateSheet, ...detected };
       break;
     }
   }
-  if (headerRowNumber === -1) {
+  if (!found) {
     throw new FileImportError("Could not find a header row.");
   }
+  const { sheet, rowCount, headerRowNumber, rawHeaders } = found;
+
   if (rawHeaders.length > MAX_COLUMNS) {
     throw new FileImportError(`Too many columns (${rawHeaders.length}) - the limit is ${MAX_COLUMNS}.`);
   }
@@ -82,6 +69,44 @@ export async function parseUploadedFile(buffer: Buffer, filename: string): Promi
   }
 
   return { columns, rows };
+}
+
+const HEADER_SEARCH_LIMIT = 10;
+
+/**
+ * Scans the top of a sheet for the first row that looks like a header
+ * (at least 2 filled cells) and confirms there's at least one data row
+ * below it. Returns null if the sheet has no such row (e.g. it's a
+ * cover/instructions sheet rather than the data table).
+ */
+function findHeaderRow(
+  sheet: ExcelJS.Worksheet
+): { rowCount: number; headerRowNumber: number; rawHeaders: string[] } | null {
+  const rowCount = Math.max(sheet.rowCount ?? 0, sheet.actualRowCount ?? 0);
+  if (rowCount < 1) return null;
+
+  for (let r = 1; r <= Math.min(rowCount, HEADER_SEARCH_LIMIT); r++) {
+    const candidate = sheet.getRow(r);
+    const cells: string[] = [];
+    candidate.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      const text = String(cell.value ?? "").trim();
+      if (text) cells[colNumber - 1] = text;
+    });
+    const filled = cells.filter(Boolean).length;
+    if (filled < 2) continue;
+
+    let hasDataBelow = false;
+    for (let d = r + 1; d <= rowCount; d++) {
+      if (sheet.getRow(d).cellCount > 0) {
+        hasDataBelow = true;
+        break;
+      }
+    }
+    if (!hasDataBelow) continue;
+
+    return { rowCount, headerRowNumber: r, rawHeaders: cells.map((v, i) => v || `column_${i + 1}`) };
+  }
+  return null;
 }
 
 function sanitizeIdentifier(name: string): string {
