@@ -28,16 +28,32 @@ export async function parseUploadedFile(buffer: Buffer, filename: string): Promi
   }
 
   const sheet = workbook.worksheets[0];
-  if (!sheet || sheet.rowCount < 2) {
+  const rowCount = Math.max(sheet?.rowCount ?? 0, sheet?.actualRowCount ?? 0);
+  if (!sheet || rowCount < 1) {
     throw new FileImportError("File has no data rows below the header.");
   }
 
-  const headerRow = sheet.getRow(1);
-  const rawHeaders: string[] = [];
-  headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-    rawHeaders[colNumber - 1] = String(cell.value ?? `column_${colNumber}`).trim() || `column_${colNumber}`;
-  });
-  if (rawHeaders.length === 0) {
+  // The header isn't always row 1 - exports often have a title row or blank
+  // spacer rows above the real column headers, so scan for the first row
+  // that actually has content in more than one cell.
+  const HEADER_SEARCH_LIMIT = 10;
+  let headerRowNumber = -1;
+  let rawHeaders: string[] = [];
+  for (let r = 1; r <= Math.min(rowCount, HEADER_SEARCH_LIMIT); r++) {
+    const candidate = sheet.getRow(r);
+    const cells: string[] = [];
+    candidate.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      const text = String(cell.value ?? "").trim();
+      if (text) cells[colNumber - 1] = text;
+    });
+    const filled = cells.filter(Boolean).length;
+    if (filled >= 2) {
+      headerRowNumber = r;
+      rawHeaders = cells.map((v, i) => v || `column_${i + 1}`);
+      break;
+    }
+  }
+  if (headerRowNumber === -1) {
     throw new FileImportError("Could not find a header row.");
   }
   if (rawHeaders.length > MAX_COLUMNS) {
@@ -47,7 +63,7 @@ export async function parseUploadedFile(buffer: Buffer, filename: string): Promi
   const columns = dedupeColumnNames(rawHeaders.map(sanitizeIdentifier));
 
   const rows: Record<string, unknown>[] = [];
-  for (let r = 2; r <= sheet.rowCount && rows.length < MAX_ROWS; r++) {
+  for (let r = headerRowNumber + 1; r <= rowCount && rows.length < MAX_ROWS; r++) {
     const row = sheet.getRow(r);
     if (row.cellCount === 0) continue;
     const record: Record<string, unknown> = {};
