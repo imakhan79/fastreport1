@@ -106,6 +106,7 @@ export default function NewReportPage() {
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [templateNameInput, setTemplateNameInput] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
 
   const [approvedDesigns, setApprovedDesigns] = useState<ApprovedDesign[]>([]);
   const [basedOnDesignId, setBasedOnDesignId] = useState<number | null>(null);
@@ -192,6 +193,7 @@ export default function NewReportPage() {
   async function saveAsTemplate() {
     if (!templateNameInput.trim() || !request.trim()) return;
     setSavingTemplate(true);
+    setTemplateError(null);
     try {
       const exportFormats = [...(wantPdf ? ["pdf"] : []), ...(wantExcel ? ["excel"] : [])];
       const res = await fetch("/api/report-templates", {
@@ -203,15 +205,26 @@ export default function NewReportPage() {
         setShowSaveTemplate(false);
         setTemplateNameInput("");
         void loadTemplates();
+      } else {
+        const data = await res.json().catch(() => null);
+        setTemplateError(data?.error ?? "Failed to save the template.");
       }
+    } catch {
+      setTemplateError("Network error saving the template.");
     } finally {
       setSavingTemplate(false);
     }
   }
 
   async function deleteTemplate(id: number) {
+    const previous = templates;
     setTemplates((prev) => prev.filter((t) => t.id !== id));
-    await fetch(`/api/report-templates/${id}`, { method: "DELETE" });
+    setTemplateError(null);
+    const res = await fetch(`/api/report-templates/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      setTemplates(previous);
+      setTemplateError("Failed to delete the template - it's still saved.");
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -298,12 +311,20 @@ export default function NewReportPage() {
                   onClick={() => deleteTemplate(t.id)}
                   className="text-muted-foreground hover:text-red-600"
                   title="Delete template"
+                  aria-label={`Delete template "${t.name}"`}
                 >
-                  <X size={11} weight="bold" />
+                  <X size={11} weight="bold" aria-hidden="true" />
                 </button>
               </div>
             ))}
           </div>
+        )}
+
+        {templateError && (
+          <p className="flex items-start gap-1.5 text-xs text-red-600">
+            <WarningCircle size={14} weight="bold" className="mt-0.5 shrink-0" aria-hidden="true" />
+            {templateError}
+          </p>
         )}
 
         <textarea
