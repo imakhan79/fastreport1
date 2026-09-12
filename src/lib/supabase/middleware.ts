@@ -11,6 +11,7 @@ const PROTECTED_PREFIXES = [
   "/tasks",
   "/sales-report",
   "/report-builder",
+  "/dashboards",
 ];
 
 /**

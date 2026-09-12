@@ -43,3 +43,21 @@ export const FILTER_OPERATOR_LABELS: Record<FilterOperator, string> = {
 };
 
 export type IntrospectedTable = { name: string; columns: { name: string; type: string }[] };
+export type DataSourceSummary = { id: number; name: string; kind: string; tableNames: string[] };
+
+/** sessionStorage key used to hand a config off to /report-builder for drill-down from a dashboard widget. */
+export const REPORT_BUILDER_PRELOAD_KEY = "report-builder-preload";
+
+export function emptyBuilderConfig(): BuilderConfig {
+  return { columns: [], aggregates: [], filters: [], sort: [], chartType: "table", chartCategory: null, chartValue: null };
+}
+
+export function aliasFor(column: string, fn: AggregateFn): string {
+  return `${column}_${fn}`;
+}
+
+export function valueKeyFor(config: BuilderConfig, column: string | null | undefined): string | null {
+  if (!column) return null;
+  const agg = config.aggregates.find((a) => a.column === column);
+  return agg ? aliasFor(agg.column, agg.fn) : column;
+}

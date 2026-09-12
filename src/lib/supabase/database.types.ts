@@ -401,6 +401,56 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["confidence_thresholds"]["Insert"]>;
         Relationships: [];
       };
+      dashboards: {
+        Row: {
+          id: number;
+          org_id: number;
+          created_by: string | null;
+          name: string;
+          refresh_seconds: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          org_id: number;
+          created_by?: string | null;
+          name: string;
+          refresh_seconds?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["dashboards"]["Insert"]>;
+        Relationships: [];
+      };
+      dashboard_widgets: {
+        Row: {
+          id: number;
+          org_id: number;
+          dashboard_id: number;
+          widget_type: string;
+          title: string;
+          data_source_id: number | null;
+          table_name: string;
+          config: Json;
+          position: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          org_id: number;
+          dashboard_id: number;
+          widget_type: string;
+          title: string;
+          data_source_id?: number | null;
+          table_name: string;
+          config?: Json;
+          position?: number;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["dashboard_widgets"]["Insert"]>;
+        Relationships: [];
+      };
       report_builder_reports: {
         Row: {
           id: number;
