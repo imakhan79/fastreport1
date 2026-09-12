@@ -59,6 +59,8 @@ export async function POST(req: NextRequest) {
     ? body.exportFormats.filter((f: unknown): f is "pdf" | "excel" => VALID_FORMATS.includes(f as never))
     : undefined;
 
+  const basedOnDesignId = Number.isInteger(body?.basedOnDesignId) ? (body.basedOnDesignId as number) : undefined;
+
   let orgId: number, userId: string;
   try {
     ({ orgId, userId } = await getAuthContext());
@@ -70,7 +72,7 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
 
   try {
-    const result = await runReportPipeline(admin, orgId, userId, naturalLanguageRequest, requestedFormats);
+    const result = await runReportPipeline(admin, orgId, userId, naturalLanguageRequest, requestedFormats, basedOnDesignId);
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof ReportPipelineError) {

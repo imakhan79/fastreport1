@@ -1,8 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../supabase/database.types";
 import { analyzeReportRequest, OrchestratorError } from "./orchestrator";
-import { initialStatusFor } from "./report-status";
-import { runDesignPipeline, DesignPipelineError } from "./design-pipeline";
+import { initialStatusFor, statusAfterDesign } from "./report-status";
+import { runDesignPipeline, cloneApprovedDesign, DesignPipelineError } from "./design-pipeline";
 import { runQueryPipeline, QueryPipelineError } from "./query-pipeline";
 import { requestMissingAttachments } from "./attachment-pipeline";
 import { advanceReportWorkflow } from "./workflow";
@@ -27,7 +27,8 @@ export async function runReportPipeline(
   orgId: number,
   userId: string,
   naturalLanguageRequest: string,
-  exportFormats: ("pdf" | "excel")[] = ["pdf", "excel"]
+  exportFormats: ("pdf" | "excel")[] = ["pdf", "excel"],
+  basedOnDesignId?: number
 ) {
   let plan;
   try {
@@ -93,8 +94,13 @@ export async function runReportPipeline(
   let designError: string | null = null;
   if (plan.design.required) {
     try {
-      const result = await runDesignPipeline(admin, report, plan);
-      design = result.design;
+      if (basedOnDesignId) {
+        design = await cloneApprovedDesign(admin, report, basedOnDesignId);
+        await admin.from("reports").update({ status: statusAfterDesign(plan) }).eq("id", report.id);
+      } else {
+        const result = await runDesignPipeline(admin, report, plan);
+        design = result.design;
+      }
     } catch (error) {
       designError = error instanceof DesignPipelineError ? error.message : "Design pipeline failed unexpectedly.";
       console.error("Design pipeline failure:", error);

@@ -461,6 +461,32 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["dashboard_widgets"]["Insert"]>;
         Relationships: [];
       };
+      report_templates: {
+        Row: {
+          id: number;
+          org_id: number;
+          created_by: string | null;
+          name: string;
+          description: string | null;
+          natural_language_request: string;
+          export_formats: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          org_id: number;
+          created_by?: string | null;
+          name: string;
+          description?: string | null;
+          natural_language_request: string;
+          export_formats?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["report_templates"]["Insert"]>;
+        Relationships: [];
+      };
       report_builder_reports: {
         Row: {
           id: number;

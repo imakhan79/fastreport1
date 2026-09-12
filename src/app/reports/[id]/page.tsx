@@ -3,7 +3,19 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, PaintBrush, Database, Paperclip, FileArrowDown, CheckCircle, CircleNotch, WarningCircle } from "@phosphor-icons/react";
+import {
+  ArrowLeft,
+  PaintBrush,
+  Database,
+  Paperclip,
+  FileArrowDown,
+  CheckCircle,
+  CircleNotch,
+  WarningCircle,
+  ArrowsClockwise,
+  Plus,
+  Minus,
+} from "@phosphor-icons/react";
 import {
   fadeIn,
   Card,
@@ -28,6 +40,20 @@ type StructuredPlan = {
   distribution: { required: boolean; channel: string | null };
 } | null;
 
+type DesignComponent = { id: string; section_id: string; type: string; title: string; chart_type: string };
+
+type DesignVersion = {
+  id: number;
+  version: number;
+  confidence: number;
+  status: string;
+  generated_by: string;
+  qa_issues: string[];
+  layout: { sections: { id: string; title: string; order: number }[] } | null;
+  components: DesignComponent[] | null;
+  created_at: string;
+};
+
 type ReportDetail = {
   report: {
     id: number;
@@ -38,14 +64,8 @@ type ReportDetail = {
     structured_plan: StructuredPlan;
     created_at: string;
   };
-  design: {
-    id: number;
-    confidence: number;
-    status: string;
-    qa_issues: string[];
-    layout: { sections: { id: string; title: string; order: number }[] } | null;
-    components: { id: string; section_id: string; type: string; title: string; chart_type: string }[] | null;
-  } | null;
+  design: DesignVersion | null;
+  designVersions: DesignVersion[];
   query: {
     id: number;
     confidence: number | null;
@@ -59,30 +79,79 @@ type ReportDetail = {
   exports: { id: number; format: string; url: string | null }[];
 };
 
+function componentKey(c: DesignComponent): string {
+  return `${c.title}__${c.type}${c.type === "chart" ? `_${c.chart_type}` : ""}`;
+}
+
+function diffDesignVersions(a: DesignVersion, b: DesignVersion) {
+  const aComps = a.components ?? [];
+  const bComps = b.components ?? [];
+  const aKeys = new Set(aComps.map(componentKey));
+  const bKeys = new Set(bComps.map(componentKey));
+  return {
+    added: bComps.filter((c) => !aKeys.has(componentKey(c))),
+    removed: aComps.filter((c) => !bKeys.has(componentKey(c))),
+    unchanged: bComps.filter((c) => aKeys.has(componentKey(c))),
+  };
+}
+
+const DESIGN_STATUS_TONE: Record<string, "success" | "warning" | "destructive" | "muted"> = {
+  auto_approved: "success",
+  approved: "success",
+  pending_review: "warning",
+  rejected: "destructive",
+  superseded: "muted",
+};
+
 export default function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [data, setData] = useState<ReportDetail | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [attachmentRequirements, setAttachmentRequirements] = useState<AttachmentRequirement[]>([]);
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenerateError, setRegenerateError] = useState<string | null>(null);
+  const [showCompare, setShowCompare] = useState(false);
+  const [compareA, setCompareA] = useState<number | null>(null);
+  const [compareB, setCompareB] = useState<number | null>(null);
+
+  async function loadReport() {
+    const res = await fetch(`/api/reports/${id}`);
+    if (!res.ok) {
+      setNotFound(true);
+      return;
+    }
+    const json = await res.json();
+    setData(json);
+    setAttachmentRequirements(json.attachmentRequirements ?? []);
+    const versions = (json.designVersions ?? []) as DesignVersion[];
+    if (versions.length >= 2) {
+      setCompareA(versions[versions.length - 2].version);
+      setCompareB(versions[versions.length - 1].version);
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const res = await fetch(`/api/reports/${id}`);
-      if (cancelled) return;
-      if (!res.ok) {
-        setNotFound(true);
-        return;
-      }
-      const json = await res.json();
-      if (cancelled) return;
-      setData(json);
-      setAttachmentRequirements(json.attachmentRequirements ?? []);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    void Promise.resolve().then(() => loadReport());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  async function handleRegenerate() {
+    setRegenerating(true);
+    setRegenerateError(null);
+    try {
+      const res = await fetch(`/api/reports/${id}/regenerate-design`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) {
+        setRegenerateError(json.error ?? "Failed to regenerate the design.");
+      } else {
+        await loadReport();
+      }
+    } catch {
+      setRegenerateError("Network error regenerating the design.");
+    } finally {
+      setRegenerating(false);
+    }
+  }
 
   if (notFound) {
     return (
@@ -106,8 +175,11 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const { report, design, query, exports } = data;
+  const { report, design, designVersions, query, exports } = data;
   const plan = report.structured_plan;
+  const versionA = designVersions.find((v) => v.version === compareA) ?? null;
+  const versionB = designVersions.find((v) => v.version === compareB) ?? null;
+  const diff = versionA && versionB ? diffDesignVersions(versionA, versionB) : null;
 
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-16">
@@ -160,12 +232,27 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       {design && (
         <Card>
           <CardHeader icon={PaintBrush} title="Design">
-            <StatusPill
-              tone={design.status === "auto_approved" ? "success" : "warning"}
-              label={design.status === "auto_approved" ? "auto-approved" : "pending human review"}
-            />
+            <div className="flex items-center gap-2">
+              <StatusPill tone={DESIGN_STATUS_TONE[design.status] ?? "muted"} label={design.status.replace(/_/g, " ")} />
+              <button
+                onClick={handleRegenerate}
+                disabled={regenerating}
+                title="Regenerate design"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+              >
+                {regenerating ? (
+                  <CircleNotch size={13} weight="bold" className="animate-spin" />
+                ) : (
+                  <ArrowsClockwise size={13} weight="bold" />
+                )}
+              </button>
+            </div>
           </CardHeader>
-          <p className="text-xs text-muted-foreground">confidence {design.confidence}%</p>
+          <p className="text-xs text-muted-foreground">
+            version {design.version} &middot; confidence {design.confidence}%
+          </p>
+
+          {regenerateError && <p className="text-xs text-red-600">{regenerateError}</p>}
 
           {design.qa_issues.length > 0 && <IssueList issues={design.qa_issues} />}
 
@@ -190,6 +277,79 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                   </div>
                 ))}
+            </div>
+          )}
+
+          {designVersions.length > 1 && (
+            <div className="flex flex-col gap-3 border-t border-[var(--color-border)] pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  {designVersions.length} versions
+                </p>
+                <button onClick={() => setShowCompare((v) => !v)} className="text-xs font-medium text-primary hover:underline">
+                  {showCompare ? "Hide compare" : "Compare versions"}
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {designVersions.map((v) => (
+                  <span
+                    key={v.id}
+                    className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                    title={`generated by ${v.generated_by}, ${new Date(v.created_at).toLocaleString()}`}
+                  >
+                    v{v.version} &middot; {v.status.replace(/_/g, " ")}
+                  </span>
+                ))}
+              </div>
+
+              {showCompare && (
+                <div className="flex flex-col gap-3 rounded-xl border border-[var(--color-border)] p-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <select
+                      value={compareA ?? ""}
+                      onChange={(e) => setCompareA(Number(e.target.value))}
+                      className="rounded-md border border-[var(--color-border)] bg-background px-2 py-1"
+                    >
+                      {designVersions.map((v) => (
+                        <option key={v.id} value={v.version}>
+                          v{v.version}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-muted-foreground">vs</span>
+                    <select
+                      value={compareB ?? ""}
+                      onChange={(e) => setCompareB(Number(e.target.value))}
+                      className="rounded-md border border-[var(--color-border)] bg-background px-2 py-1"
+                    >
+                      {designVersions.map((v) => (
+                        <option key={v.id} value={v.version}>
+                          v{v.version}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {diff && (
+                    <div className="flex flex-col gap-2 text-xs">
+                      {diff.added.length === 0 && diff.removed.length === 0 && (
+                        <p className="text-muted-foreground">No component changes between these versions.</p>
+                      )}
+                      {diff.added.map((c) => (
+                        <span key={`add-${c.id}`} className="flex items-center gap-1.5 text-green-700 dark:text-green-400">
+                          <Plus size={11} weight="bold" /> {c.title} ({c.type === "chart" ? c.chart_type : c.type})
+                        </span>
+                      ))}
+                      {diff.removed.map((c) => (
+                        <span key={`rm-${c.id}`} className="flex items-center gap-1.5 text-red-600">
+                          <Minus size={11} weight="bold" /> {c.title} ({c.type === "chart" ? c.chart_type : c.type})
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </Card>

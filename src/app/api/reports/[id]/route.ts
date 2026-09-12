@@ -29,12 +29,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Report not found." }, { status: 404 });
   }
 
-  const [{ data: design }, { data: query }, { data: attachmentRequirements }, { data: exports }] = await Promise.all([
-    admin.from("designs").select("*").eq("report_id", reportId).order("id", { ascending: false }).limit(1).maybeSingle(),
+  const [{ data: designVersions }, { data: query }, { data: attachmentRequirements }, { data: exports }] = await Promise.all([
+    admin.from("designs").select("*").eq("report_id", reportId).order("version", { ascending: true }),
     admin.from("queries").select("*").eq("report_id", reportId).order("id", { ascending: false }).limit(1).maybeSingle(),
     admin.from("attachment_requirements").select("*").eq("report_id", reportId),
     admin.from("report_exports").select("*").eq("report_id", reportId),
   ]);
+
+  const design = designVersions && designVersions.length > 0 ? designVersions[designVersions.length - 1] : null;
 
   const exportsWithUrls = await Promise.all(
     (exports ?? []).map(async (exp) => {
@@ -47,6 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   return NextResponse.json({
     report,
     design,
+    designVersions: designVersions ?? [],
     query,
     attachmentRequirements: attachmentRequirements ?? [],
     exports: exportsWithUrls,

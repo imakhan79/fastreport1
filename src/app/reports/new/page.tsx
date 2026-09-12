@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -75,6 +75,22 @@ type ReportResult = {
   exports: { id: number; format: string; url: string | null }[];
 };
 
+type Template = {
+  id: number;
+  name: string;
+  description: string | null;
+  natural_language_request: string;
+  export_formats: string[];
+};
+
+type ApprovedDesign = {
+  id: number;
+  reportId: number;
+  reportTitle: string;
+  confidence: number;
+  componentCount: number;
+};
+
 export default function NewReportPage() {
   const [request, setRequest] = useState("");
   const [loading, setLoading] = useState(false);
@@ -83,6 +99,14 @@ export default function NewReportPage() {
   const [attachmentRequirements, setAttachmentRequirements] = useState<AttachmentRequirement[]>([]);
   const [exports, setExports] = useState<{ id: number; format: string; url: string | null }[]>([]);
   const [reportStatus, setReportStatus] = useState<string | null>(null);
+
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateNameInput, setTemplateNameInput] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+
+  const [approvedDesigns, setApprovedDesigns] = useState<ApprovedDesign[]>([]);
+  const [basedOnDesignId, setBasedOnDesignId] = useState<number | null>(null);
 
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
@@ -134,6 +158,60 @@ export default function NewReportPage() {
     setImportError(null);
   }
 
+  const loadTemplates = useCallback(async () => {
+    const res = await fetch("/api/report-templates");
+    if (res.ok) {
+      const data = await res.json();
+      setTemplates(data.templates ?? []);
+    }
+  }, []);
+
+  const loadApprovedDesigns = useCallback(async () => {
+    const res = await fetch("/api/designs/approved");
+    if (res.ok) {
+      const data = await res.json();
+      setApprovedDesigns(data.designs ?? []);
+    }
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      void loadTemplates();
+      void loadApprovedDesigns();
+    });
+  }, [loadTemplates, loadApprovedDesigns]);
+
+  function applyTemplate(template: Template) {
+    setRequest(template.natural_language_request);
+    setWantPdf(template.export_formats.includes("pdf"));
+    setWantExcel(template.export_formats.includes("excel"));
+  }
+
+  async function saveAsTemplate() {
+    if (!templateNameInput.trim() || !request.trim()) return;
+    setSavingTemplate(true);
+    try {
+      const exportFormats = [...(wantPdf ? ["pdf"] : []), ...(wantExcel ? ["excel"] : [])];
+      const res = await fetch("/api/report-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: templateNameInput.trim(), naturalLanguageRequest: request, exportFormats }),
+      });
+      if (res.ok) {
+        setShowSaveTemplate(false);
+        setTemplateNameInput("");
+        void loadTemplates();
+      }
+    } finally {
+      setSavingTemplate(false);
+    }
+  }
+
+  async function deleteTemplate(id: number) {
+    setTemplates((prev) => prev.filter((t) => t.id !== id));
+    await fetch(`/api/report-templates/${id}`, { method: "DELETE" });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -146,7 +224,7 @@ export default function NewReportPage() {
       const res = await fetch("/api/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ request, exportFormats }),
+        body: JSON.stringify({ request, exportFormats, basedOnDesignId: basedOnDesignId ?? undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -202,6 +280,30 @@ export default function NewReportPage() {
         onSubmit={handleSubmit}
         className="flex flex-col gap-3"
       >
+        {templates.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Start from template:</span>
+            {templates.map((t) => (
+              <div
+                key={t.id}
+                className="flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-card/60 px-3 py-1 text-xs"
+              >
+                <button type="button" onClick={() => applyTemplate(t)} className="font-medium text-foreground hover:text-primary">
+                  {t.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteTemplate(t.id)}
+                  className="text-muted-foreground hover:text-red-600"
+                  title="Delete template"
+                >
+                  <X size={11} weight="bold" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <textarea
           value={request}
           onChange={(e) => setRequest(e.target.value)}
@@ -209,6 +311,57 @@ export default function NewReportPage() {
           rows={4}
           className="rounded-2xl border border-[var(--color-border)] bg-card/70 p-4 text-sm text-foreground outline-none backdrop-blur transition-shadow focus:shadow-[0_0_0_3px_var(--color-primary)] focus:shadow-primary/20"
         />
+
+        <div className="flex flex-wrap items-center gap-2">
+          {!showSaveTemplate ? (
+            <button
+              type="button"
+              onClick={() => setShowSaveTemplate(true)}
+              disabled={!request.trim()}
+              className="w-fit text-xs font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Save as template
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <input
+                value={templateNameInput}
+                onChange={(e) => setTemplateNameInput(e.target.value)}
+                placeholder="Template name"
+                className="rounded-full border border-[var(--color-border)] bg-background px-3 py-1 text-xs text-foreground"
+              />
+              <button
+                type="button"
+                onClick={saveAsTemplate}
+                disabled={savingTemplate || !templateNameInput.trim()}
+                className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-on-primary disabled:opacity-50"
+              >
+                {savingTemplate ? "Saving..." : "Save"}
+              </button>
+              <button type="button" onClick={() => setShowSaveTemplate(false)} className="text-xs text-muted-foreground hover:text-foreground">
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+
+        {approvedDesigns.length > 0 && (
+          <label className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="font-medium text-muted-foreground">Reuse an approved design (optional):</span>
+            <select
+              value={basedOnDesignId ?? ""}
+              onChange={(e) => setBasedOnDesignId(e.target.value ? Number(e.target.value) : null)}
+              className="rounded-full border border-[var(--color-border)] bg-background px-3 py-1.5 text-foreground"
+            >
+              <option value="">None &mdash; generate a new design</option>
+              {approvedDesigns.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.reportTitle} ({d.componentCount} components, {d.confidence}% confidence)
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         {!importedInfo && (
           <label className="flex w-fit cursor-pointer items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-card/60 px-4 py-2 text-xs font-medium text-muted-foreground backdrop-blur transition-colors hover:bg-card">

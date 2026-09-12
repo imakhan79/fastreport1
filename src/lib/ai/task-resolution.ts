@@ -3,6 +3,7 @@ import type { Database } from "../supabase/database.types";
 import { resolveApproval } from "./approval-pipeline";
 import { advanceReportWorkflow } from "./workflow";
 import { maybeAdvancePastAttachments } from "./attachment-pipeline";
+import { regenerateDesign } from "./design-pipeline";
 import type { OrchestratorPlan } from "./orchestrator-schema";
 
 export class TaskResolutionError extends Error {}
@@ -40,8 +41,10 @@ export async function resolveTask(
   }
 
   let plan: OrchestratorPlan | null = null;
+  let report: Database["public"]["Tables"]["reports"]["Row"] | null = null;
   if (task.report_id) {
-    const { data: report } = await admin.from("reports").select("*").eq("id", task.report_id).single();
+    const { data } = await admin.from("reports").select("*").eq("id", task.report_id).single();
+    report = data;
     if (report?.structured_plan) plan = report.structured_plan as unknown as OrchestratorPlan;
 
     if (task.task_type === "approval" && report && plan) {
@@ -54,6 +57,14 @@ export async function resolveTask(
       .from("designs")
       .update({ status: decision === "approve" ? "approved" : "rejected" })
       .eq("id", task.related_entity_id);
+
+    if (decision === "reject" && report) {
+      try {
+        await regenerateDesign(admin, report, "auto_rejection");
+      } catch (error) {
+        console.error("Automatic design regeneration failed:", error);
+      }
+    }
   } else if (task.task_type === "query_review" && task.related_entity_id) {
     await admin
       .from("queries")
