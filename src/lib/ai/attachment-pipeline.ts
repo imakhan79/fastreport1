@@ -9,9 +9,35 @@ import {
 import { getConfidenceThreshold } from "./confidence";
 import { advanceReportWorkflow } from "./workflow";
 import { pickResponsibleUser } from "./assignment";
+import { statusAfterAttachments } from "./report-status";
 import type { OrchestratorPlan } from "./orchestrator-schema";
 
 const DEADLINE_HOURS = 24;
+
+/**
+ * Unlike design/query (which advance the report status speculatively as
+ * soon as the AI produces an artifact, regardless of pending human review),
+ * the attachments stage genuinely blocks: there's no usable document until
+ * one is actually approved. So the report's status only leaves
+ * "attachments_pending" once every requirement for it is "approved" -
+ * called from both the automated classification path and the human
+ * attachment_review task-resolution path.
+ */
+export async function maybeAdvancePastAttachments(
+  admin: SupabaseClient<Database>,
+  reportId: number,
+  plan: OrchestratorPlan
+): Promise<void> {
+  const { data: requirements } = await admin
+    .from("attachment_requirements")
+    .select("status")
+    .eq("report_id", reportId);
+
+  if (!requirements || requirements.length === 0) return;
+  if (!requirements.every((r) => r.status === "approved")) return;
+
+  await admin.from("reports").update({ status: statusAfterAttachments(plan) }).eq("id", reportId);
+}
 
 /**
  * Section 3/4 of the spec: for every attachment requirement a report needs,
@@ -320,8 +346,10 @@ export async function processAttachmentUpload(
   if (decision === "approved" && requirement.report_id) {
     const { data: report } = await admin.from("reports").select("*").eq("id", requirement.report_id).single();
     if (report?.structured_plan) {
+      const plan = report.structured_plan as unknown as OrchestratorPlan;
       try {
-        await advanceReportWorkflow(admin, report, report.structured_plan as unknown as OrchestratorPlan);
+        await maybeAdvancePastAttachments(admin, report.id, plan);
+        await advanceReportWorkflow(admin, report, plan);
       } catch (error) {
         console.error("Report generation failure after attachment approval:", error);
       }

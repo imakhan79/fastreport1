@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../supabase/database.types";
 import { resolveApproval } from "./approval-pipeline";
 import { advanceReportWorkflow } from "./workflow";
+import { maybeAdvancePastAttachments } from "./attachment-pipeline";
 import type { OrchestratorPlan } from "./orchestrator-schema";
 
 export class TaskResolutionError extends Error {}
@@ -84,6 +85,10 @@ export async function resolveTask(
             type: "attachment_rejected",
             message: "A reviewer rejected your uploaded document. Please upload the correct document.",
           });
+        }
+
+        if (decision === "approve" && task.report_id && plan) {
+          await maybeAdvancePastAttachments(admin, task.report_id, plan);
         }
       }
     }
