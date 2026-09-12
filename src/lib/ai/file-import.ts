@@ -92,8 +92,9 @@ function findHeaderRow(
       const text = String(cell.value ?? "").trim();
       if (text) cells[colNumber - 1] = text;
     });
+    // At least 1 filled cell so single-column files are still detected.
     const filled = cells.filter(Boolean).length;
-    if (filled < 2) continue;
+    if (filled < 1) continue;
 
     let hasDataBelow = false;
     for (let d = r + 1; d <= rowCount; d++) {
