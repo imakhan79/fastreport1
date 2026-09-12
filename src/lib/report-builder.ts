@@ -155,3 +155,27 @@ export async function runBuilderQuery(
 
   return { rows: result.rows, sql, rowCount: result.rowCount };
 }
+
+/**
+ * A saved report_builder_reports row snapshots {dataSourceId, table} independently
+ * of query execution, so it never goes through buildSelectQuery's own allowlist
+ * checks at save time - validate here instead of trusting the client-supplied ids.
+ */
+export async function assertDataSourceTable(
+  admin: SupabaseClient<Database>,
+  orgId: number,
+  dataSourceId: number,
+  tableName: string
+): Promise<void> {
+  const { data: dataSource, error } = await admin
+    .from("data_sources")
+    .select("schema_cache")
+    .eq("id", dataSourceId)
+    .eq("org_id", orgId)
+    .maybeSingle();
+
+  if (error || !dataSource) throw new ReportBuilderError("Data source not found.");
+
+  const tables = ((dataSource.schema_cache as { tables?: IntrospectedTable[] } | null)?.tables ?? []) as IntrospectedTable[];
+  findTable(tables, tableName);
+}

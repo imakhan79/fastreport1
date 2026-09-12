@@ -198,7 +198,12 @@ export default function ReportBuilderPage() {
   }
 
   async function deleteSaved(id: number) {
-    await fetch(`/api/report-builder/${id}`, { method: "DELETE" });
+    setError(null);
+    const res = await fetch(`/api/report-builder/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      setError("Failed to delete the saved report - it's still saved.");
+      return;
+    }
     if (currentSavedId === id) {
       setCurrentSavedId(null);
       setReportName("");

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthContext, UnauthorizedError } from "@/lib/auth";
-import type { BuilderConfig } from "@/lib/report-builder";
+import { assertDataSourceTable, ReportBuilderError, type BuilderConfig } from "@/lib/report-builder";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -53,6 +53,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const admin = createAdminClient();
+
+  try {
+    await assertDataSourceTable(admin, orgId, dataSourceId, table);
+  } catch (err) {
+    if (err instanceof ReportBuilderError) return NextResponse.json({ error: err.message }, { status: 400 });
+    throw err;
+  }
+
   const { data, error } = await admin
     .from("report_builder_reports")
     .update({ name, data_source_id: dataSourceId, table_name: table, config })
