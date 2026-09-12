@@ -89,7 +89,8 @@ export function resolveConnectionString(connectionRef: string | null): string {
  */
 export async function executeReadOnlyQuery(
   sql: string,
-  connectionString: string = process.env.DATABASE_URL!
+  connectionString: string = process.env.DATABASE_URL!,
+  params?: unknown[]
 ): Promise<QueryResult> {
   const client = new Client({ connectionString, connectionTimeoutMillis: CONNECT_TIMEOUT_MS });
   try {
@@ -97,7 +98,7 @@ export async function executeReadOnlyQuery(
     await client.query("BEGIN READ ONLY");
     await client.query(`SET LOCAL statement_timeout = ${STATEMENT_TIMEOUT_MS}`);
     try {
-      const result = await client.query(sql);
+      const result = await client.query(sql, params);
       await client.query("COMMIT");
       return {
         rows: result.rows.slice(0, MAX_PREVIEW_ROWS),

@@ -401,6 +401,32 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["confidence_thresholds"]["Insert"]>;
         Relationships: [];
       };
+      report_builder_reports: {
+        Row: {
+          id: number;
+          org_id: number;
+          created_by: string | null;
+          name: string;
+          data_source_id: number | null;
+          table_name: string;
+          config: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          org_id: number;
+          created_by?: string | null;
+          name: string;
+          data_source_id?: number | null;
+          table_name: string;
+          config?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["report_builder_reports"]["Insert"]>;
+        Relationships: [];
+      };
       sales_orders: {
         Row: {
           id: number;

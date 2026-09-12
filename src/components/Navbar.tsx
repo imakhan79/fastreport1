@@ -15,6 +15,7 @@ const MARKETING_LINKS = [
 
 const WORKSPACE_LINKS = [
   { href: "/reports", label: "Reports" },
+  { href: "/report-builder", label: "Report Builder" },
   { href: "/sales-report", label: "Sales Report" },
   { href: "/schedules", label: "Schedules" },
   { href: "/data-sources", label: "Connectors" },

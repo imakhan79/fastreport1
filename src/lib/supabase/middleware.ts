@@ -10,6 +10,7 @@ const PROTECTED_PREFIXES = [
   "/activity",
   "/tasks",
   "/sales-report",
+  "/report-builder",
 ];
 
 /**
