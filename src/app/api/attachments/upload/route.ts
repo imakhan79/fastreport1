@@ -35,15 +35,21 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
-  await ensureBucket(admin);
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
   const storagePath = `${requirementId}/${Date.now()}-${file.name}`;
+  const uploadOptions = { contentType: file.type || "application/octet-stream" };
 
-  const { error: uploadError } = await admin.storage
-    .from(BUCKET)
-    .upload(storagePath, buffer, { contentType: file.type || "application/octet-stream" });
+  let uploadError = (await admin.storage.from(BUCKET).upload(storagePath, buffer, uploadOptions)).error;
+  if (uploadError && /bucket not found/i.test(uploadError.message)) {
+    // Lazily create the bucket only on its actual first-ever use, instead of
+    // paying for a createBucket round trip on every single upload - that
+    // extra network call was one more thing that could transiently fail and
+    // make an otherwise-fine upload look broken.
+    await ensureBucket(admin);
+    uploadError = (await admin.storage.from(BUCKET).upload(storagePath, buffer, uploadOptions)).error;
+  }
 
   if (uploadError) {
     return NextResponse.json({ error: `Storage upload failed: ${uploadError.message}` }, { status: 500 });
@@ -61,8 +67,11 @@ export async function POST(req: NextRequest) {
     );
     return NextResponse.json(result);
   } catch (error) {
-    const message = error instanceof AttachmentPipelineError ? error.message : "Attachment processing failed unexpectedly.";
     console.error("Attachment pipeline failure:", error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (error instanceof AttachmentPipelineError) {
+      const status = error.message === "Attachment requirement not found." ? 404 : 500;
+      return NextResponse.json({ error: error.message }, { status });
+    }
+    return NextResponse.json({ error: "Attachment processing failed unexpectedly." }, { status: 500 });
   }
 }

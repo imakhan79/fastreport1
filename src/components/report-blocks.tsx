@@ -305,8 +305,10 @@ export function AttachmentRequirementRow({
             <CheckCircle size={14} weight="bold" className="mt-0.5 shrink-0 text-green-600" />
           ) : message.startsWith("rejected") ? (
             <XCircle size={14} weight="bold" className="mt-0.5 shrink-0 text-red-600" />
-          ) : (
+          ) : message.startsWith("escalated") ? (
             <Clock size={14} weight="bold" className="mt-0.5 shrink-0 text-amber-600" />
+          ) : (
+            <WarningCircle size={14} weight="bold" className="mt-0.5 shrink-0 text-red-600" />
           )}
           {message}
         </p>
