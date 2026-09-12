@@ -101,9 +101,13 @@ export default function DashboardsPage() {
       )}
 
       <div className="flex flex-col gap-2">
-        {dashboards.map((d) => (
-          <div
+        {dashboards.map((d, i) => (
+          <motion.div
             key={d.id}
+            initial="hidden"
+            animate="show"
+            variants={fadeIn}
+            transition={{ delay: Math.min(i * 0.04, 0.4) }}
             className="group flex items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-card/50 p-4 transition-colors hover:bg-muted"
           >
             <Link href={`/dashboards/${d.id}`} className="min-w-0 flex-1">
@@ -120,10 +124,11 @@ export default function DashboardsPage() {
               onClick={() => handleDelete(d.id)}
               className="shrink-0 rounded-full p-2 text-muted-foreground hover:bg-red-500/10 hover:text-red-600"
               title="Delete"
+              aria-label={`Delete dashboard "${d.name}"`}
             >
-              <Trash size={14} weight="bold" />
+              <Trash size={14} weight="bold" aria-hidden="true" />
             </button>
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>

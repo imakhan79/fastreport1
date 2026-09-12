@@ -273,15 +273,25 @@ export default function SalesReportPage() {
                   {COLUMNS.map((col) => (
                     <th
                       key={col.key}
-                      onClick={() => toggleSort(col.key)}
-                      className={`border-b-2 border-[var(--color-border)] px-4 py-3 text-xs font-bold tracking-wide text-foreground uppercase select-none print:border-black ${
+                      scope="col"
+                      aria-sort={sortKey === col.key ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+                      className={`border-b-2 border-[var(--color-border)] p-0 text-xs font-bold tracking-wide text-foreground uppercase print:border-black ${
                         col.align === "right" ? "text-right" : "text-left"
-                      } cursor-pointer transition-colors hover:bg-black/5 print:cursor-default print:hover:bg-transparent`}
+                      }`}
                     >
-                      <span className={`inline-flex items-center gap-1 ${col.align === "right" ? "flex-row-reverse" : ""}`}>
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(col.key)}
+                        aria-label={`Sort by ${col.label}, currently ${
+                          sortKey === col.key ? (sortDir === "asc" ? "ascending" : "descending") : "not sorted"
+                        }`}
+                        className={`inline-flex w-full select-none items-center gap-1 px-4 py-3 uppercase transition-colors hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary print:cursor-default print:hover:bg-transparent ${
+                          col.align === "right" ? "flex-row-reverse justify-start" : "justify-start"
+                        }`}
+                      >
                         {col.label}
                         <SortIcon active={sortKey === col.key} direction={sortDir} />
-                      </span>
+                      </button>
                     </th>
                   ))}
                 </tr>
@@ -366,11 +376,11 @@ export default function SalesReportPage() {
 }
 
 function SortIcon({ active, direction }: { active: boolean; direction: SortDirection }) {
-  if (!active) return <CaretUpDown size={12} weight="bold" className="text-muted-foreground/60 print:hidden" />;
+  if (!active) return <CaretUpDown size={12} weight="bold" aria-hidden="true" className="text-muted-foreground/60 print:hidden" />;
   return direction === "asc" ? (
-    <CaretUp size={12} weight="bold" className="text-primary print:hidden" />
+    <CaretUp size={12} weight="bold" aria-hidden="true" className="text-primary print:hidden" />
   ) : (
-    <CaretDown size={12} weight="bold" className="text-primary print:hidden" />
+    <CaretDown size={12} weight="bold" aria-hidden="true" className="text-primary print:hidden" />
   );
 }
 

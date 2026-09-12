@@ -179,22 +179,28 @@ export default function DataSourcesPage() {
           </button>
         </div>
 
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Name (e.g. Production Warehouse)"
-          className="rounded-xl border border-[var(--color-border)] bg-background p-3 text-sm text-foreground outline-none focus:shadow-[0_0_0_3px_var(--color-primary)] focus:shadow-primary/20"
-        />
+        <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
+          Name
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Production Warehouse"
+            className="rounded-xl border border-[var(--color-border)] bg-background p-3 text-sm font-normal text-foreground outline-none focus:shadow-[0_0_0_3px_var(--color-primary)] focus:shadow-primary/20"
+          />
+        </label>
 
         {connectorKind === "postgres" ? (
           <>
-            <input
-              value={connectionString}
-              onChange={(e) => setConnectionString(e.target.value)}
-              type="password"
-              placeholder="postgres://user:password@host:5432/database"
-              className="rounded-xl border border-[var(--color-border)] bg-background p-3 font-mono text-sm text-foreground outline-none focus:shadow-[0_0_0_3px_var(--color-primary)] focus:shadow-primary/20"
-            />
+            <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
+              Connection string
+              <input
+                value={connectionString}
+                onChange={(e) => setConnectionString(e.target.value)}
+                type="password"
+                placeholder="postgres://user:password@host:5432/database"
+                className="rounded-xl border border-[var(--color-border)] bg-background p-3 font-mono text-sm font-normal text-foreground outline-none focus:shadow-[0_0_0_3px_var(--color-primary)] focus:shadow-primary/20"
+              />
+            </label>
             <p className="text-xs text-muted-foreground">
               Stored server-side only and never shown again. The pipeline connects read-only, with a
               statement timeout, the same way it queries the built-in demo database.
@@ -202,57 +208,75 @@ export default function DataSourcesPage() {
           </>
         ) : (
           <>
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://api.example.com/v1/records"
-              className="rounded-xl border border-[var(--color-border)] bg-background p-3 font-mono text-sm text-foreground outline-none focus:shadow-[0_0_0_3px_var(--color-primary)] focus:shadow-primary/20"
-            />
+            <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
+              API URL
+              <input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://api.example.com/v1/records"
+                className="rounded-xl border border-[var(--color-border)] bg-background p-3 font-mono text-sm font-normal text-foreground outline-none focus:shadow-[0_0_0_3px_var(--color-primary)] focus:shadow-primary/20"
+              />
+            </label>
 
-            <select
-              value={authType}
-              onChange={(e) => setAuthType(e.target.value as AuthType)}
-              className="rounded-xl border border-[var(--color-border)] bg-background p-3 text-sm text-foreground"
-            >
-              <option value="none">No authentication</option>
-              <option value="api_key_header">API key header</option>
-              <option value="bearer">Bearer token</option>
-            </select>
+            <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
+              Authentication
+              <select
+                value={authType}
+                onChange={(e) => setAuthType(e.target.value as AuthType)}
+                className="rounded-xl border border-[var(--color-border)] bg-background p-3 text-sm font-normal text-foreground"
+              >
+                <option value="none">No authentication</option>
+                <option value="api_key_header">API key header</option>
+                <option value="bearer">Bearer token</option>
+              </select>
+            </label>
 
             {authType === "api_key_header" && (
               <div className="flex gap-2">
-                <input
-                  value={headerName}
-                  onChange={(e) => setHeaderName(e.target.value)}
-                  placeholder="Header name (default X-API-Key)"
-                  className="flex-1 rounded-xl border border-[var(--color-border)] bg-background p-3 text-sm text-foreground"
-                />
-                <input
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  type="password"
-                  placeholder="API key value"
-                  className="flex-1 rounded-xl border border-[var(--color-border)] bg-background p-3 font-mono text-sm text-foreground"
-                />
+                <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-foreground">
+                  Header name
+                  <input
+                    value={headerName}
+                    onChange={(e) => setHeaderName(e.target.value)}
+                    placeholder="X-API-Key"
+                    className="rounded-xl border border-[var(--color-border)] bg-background p-3 text-sm font-normal text-foreground"
+                  />
+                </label>
+                <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-foreground">
+                  API key value
+                  <input
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    type="password"
+                    placeholder="API key value"
+                    className="rounded-xl border border-[var(--color-border)] bg-background p-3 font-mono text-sm font-normal text-foreground"
+                  />
+                </label>
               </div>
             )}
 
             {authType === "bearer" && (
-              <input
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                type="password"
-                placeholder="Bearer token"
-                className="rounded-xl border border-[var(--color-border)] bg-background p-3 font-mono text-sm text-foreground"
-              />
+              <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
+                Bearer token
+                <input
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  type="password"
+                  placeholder="Bearer token"
+                  className="rounded-xl border border-[var(--color-border)] bg-background p-3 font-mono text-sm font-normal text-foreground"
+                />
+              </label>
             )}
 
-            <input
-              value={responsePath}
-              onChange={(e) => setResponsePath(e.target.value)}
-              placeholder="Response path, e.g. data.items (leave blank if the response is already an array)"
-              className="rounded-xl border border-[var(--color-border)] bg-background p-3 text-sm text-foreground"
-            />
+            <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
+              Response path (optional)
+              <input
+                value={responsePath}
+                onChange={(e) => setResponsePath(e.target.value)}
+                placeholder="e.g. data.items - leave blank if the response is already an array"
+                className="rounded-xl border border-[var(--color-border)] bg-background p-3 text-sm font-normal text-foreground"
+              />
+            </label>
 
             <label className="flex items-center gap-1.5 text-xs text-foreground">
               <input type="checkbox" checked={paginated} onChange={(e) => setPaginated(e.target.checked)} />
@@ -261,21 +285,26 @@ export default function DataSourcesPage() {
 
             {paginated && (
               <div className="flex gap-2">
-                <input
-                  value={pageParam}
-                  onChange={(e) => setPageParam(e.target.value)}
-                  placeholder="Page query param name"
-                  className="flex-1 rounded-xl border border-[var(--color-border)] bg-background p-3 text-sm text-foreground"
-                />
-                <input
-                  value={maxPages}
-                  onChange={(e) => setMaxPages(Math.max(1, Number(e.target.value) || 1))}
-                  type="number"
-                  min={1}
-                  max={20}
-                  placeholder="Max pages"
-                  className="w-28 rounded-xl border border-[var(--color-border)] bg-background p-3 text-sm text-foreground"
-                />
+                <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-foreground">
+                  Page query param name
+                  <input
+                    value={pageParam}
+                    onChange={(e) => setPageParam(e.target.value)}
+                    placeholder="page"
+                    className="rounded-xl border border-[var(--color-border)] bg-background p-3 text-sm font-normal text-foreground"
+                  />
+                </label>
+                <label className="flex w-28 flex-col gap-1 text-xs font-medium text-foreground">
+                  Max pages
+                  <input
+                    value={maxPages}
+                    onChange={(e) => setMaxPages(Math.max(1, Number(e.target.value) || 1))}
+                    type="number"
+                    min={1}
+                    max={20}
+                    className="rounded-xl border border-[var(--color-border)] bg-background p-3 text-sm font-normal text-foreground"
+                  />
+                </label>
               </div>
             )}
 
@@ -394,25 +423,29 @@ function DataSourceRow({
             onClick={refresh}
             disabled={refreshing}
             title={isRestApi ? "Sync now" : "Refresh schema"}
+            aria-label={isRestApi ? `Sync ${source.name} now` : `Refresh schema for ${source.name}`}
             className="flex h-8 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
           >
             {refreshing ? (
-              <CircleNotch size={14} weight="bold" className="animate-spin" />
+              <CircleNotch size={14} weight="bold" aria-hidden="true" className="animate-spin" />
             ) : (
-              <ArrowClockwise size={14} weight="bold" />
+              <ArrowClockwise size={14} weight="bold" aria-hidden="true" />
             )}
             {isRestApi ? "Sync now" : ""}
           </button>
           <button
             onClick={onDeleted}
             title="Delete"
+            aria-label={`Delete data source ${source.name}`}
             className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-red-500/10 hover:text-red-600"
           >
-            <Trash size={14} weight="bold" />
+            <Trash size={14} weight="bold" aria-hidden="true" />
           </button>
           {source.tableNames.length > 0 && (
             <button
               onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+              aria-label={expanded ? `Hide tables for ${source.name}` : `Show tables for ${source.name}`}
               className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <CaretDown size={14} weight="bold" className={`transition-transform ${expanded ? "rotate-180" : ""}`} />

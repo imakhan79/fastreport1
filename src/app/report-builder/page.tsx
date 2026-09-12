@@ -315,8 +315,9 @@ export default function ReportBuilderPage() {
                     onClick={() => deleteSaved(r.id)}
                     className="shrink-0 text-muted-foreground hover:text-red-600"
                     title="Delete"
+                    aria-label={`Delete saved report "${r.name}"`}
                   >
-                    <Trash size={12} weight="bold" />
+                    <Trash size={12} weight="bold" aria-hidden="true" />
                   </button>
                 </div>
               ))}

@@ -15,6 +15,8 @@ import {
   WarningCircle,
   X,
   DotsSixVertical,
+  CaretUp,
+  CaretDown,
 } from "@phosphor-icons/react";
 import { fadeIn, Card, CardHeader, Alert } from "@/components/report-blocks";
 import { DataSourcePicker, BuilderConfigEditor } from "@/components/report-config-editor";
@@ -183,6 +185,16 @@ export default function DashboardDetailPage() {
     void persistOrder(next);
   }
 
+  /** Keyboard-operable alternative to drag-to-reorder (WCAG 2.2 dragging-movements). */
+  function moveWidget(index: number, delta: number) {
+    const target = index + delta;
+    if (target < 0 || target >= widgets.length) return;
+    const next = [...widgets];
+    const [moved] = next.splice(index, 1);
+    next.splice(target, 0, moved);
+    void persistOrder(next);
+  }
+
   function drillDown(widget: Widget) {
     sessionStorage.setItem(
       REPORT_BUILDER_PRELOAD_KEY,
@@ -273,8 +285,12 @@ export default function DashboardDetailPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {widgets.map((widget, i) => (
-          <div
+          <motion.div
             key={widget.id}
+            initial="hidden"
+            animate="show"
+            variants={fadeIn}
+            transition={{ delay: Math.min(i * 0.04, 0.4) }}
             draggable
             onDragStart={() => setDragIndex(i)}
             onDragOver={(e) => e.preventDefault()}
@@ -285,8 +301,10 @@ export default function DashboardDetailPage() {
               state={widgetStates[widget.id]}
               onDelete={() => handleDeleteWidget(widget.id)}
               onDrillDown={() => drillDown(widget)}
+              onMoveEarlier={i > 0 ? () => moveWidget(i, -1) : undefined}
+              onMoveLater={i < widgets.length - 1 ? () => moveWidget(i, 1) : undefined}
             />
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>
@@ -298,11 +316,15 @@ function WidgetCard({
   state,
   onDelete,
   onDrillDown,
+  onMoveEarlier,
+  onMoveLater,
 }: {
   widget: Widget;
   state: WidgetState | undefined;
   onDelete: () => void;
   onDrillDown: () => void;
+  onMoveEarlier?: () => void;
+  onMoveLater?: () => void;
 }) {
   const rows = useMemo(() => state?.rows ?? [], [state?.rows]);
 
@@ -330,17 +352,47 @@ function WidgetCard({
     <div className="flex h-72 flex-col rounded-2xl border border-[var(--color-border)] bg-card/70 p-4 backdrop-blur">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
-          <DotsSixVertical size={14} weight="bold" className="shrink-0 cursor-grab text-muted-foreground" />
+          <DotsSixVertical size={14} weight="bold" aria-hidden="true" className="shrink-0 cursor-grab text-muted-foreground" />
+          <div className="flex shrink-0 flex-col">
+            <button
+              type="button"
+              onClick={onMoveEarlier}
+              disabled={!onMoveEarlier}
+              aria-label={`Move "${widget.title}" earlier`}
+              className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+            >
+              <CaretUp size={10} weight="bold" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={onMoveLater}
+              disabled={!onMoveLater}
+              aria-label={`Move "${widget.title}" later`}
+              className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+            >
+              <CaretDown size={10} weight="bold" aria-hidden="true" />
+            </button>
+          </div>
           <h3 className="truncate text-sm font-semibold text-foreground" title={widget.title}>
             {widget.title}
           </h3>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <button onClick={onDrillDown} title="Drill down" className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-            <ArrowsOutSimple size={13} weight="bold" />
+          <button
+            onClick={onDrillDown}
+            title="Drill down"
+            aria-label={`Drill down into "${widget.title}"`}
+            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <ArrowsOutSimple size={13} weight="bold" aria-hidden="true" />
           </button>
-          <button onClick={onDelete} title="Remove" className="rounded-full p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-600">
-            <Trash size={13} weight="bold" />
+          <button
+            onClick={onDelete}
+            title="Remove"
+            aria-label={`Remove widget "${widget.title}"`}
+            className="rounded-full p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-600"
+          >
+            <Trash size={13} weight="bold" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -500,8 +552,8 @@ function AddWidgetPanel({
     <Card>
       <div className="flex items-center justify-between">
         <CardHeader icon={Plus} title="Add widget" />
-        <button onClick={onCancel} className="rounded-full p-1.5 text-muted-foreground hover:bg-muted">
-          <X size={14} weight="bold" />
+        <button onClick={onCancel} aria-label="Cancel adding widget" className="rounded-full p-1.5 text-muted-foreground hover:bg-muted">
+          <X size={14} weight="bold" aria-hidden="true" />
         </button>
       </div>
 

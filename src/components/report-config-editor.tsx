@@ -7,6 +7,8 @@ import {
   ChartPieSlice,
   Table as TableIcon,
   DotsSixVertical,
+  CaretUp,
+  CaretDown,
   X,
   Plus,
   FunnelSimple,
@@ -204,7 +206,27 @@ export function BuilderConfigEditor({
                 }}
                 className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-card/50 px-2.5 py-1.5 text-xs"
               >
-                <DotsSixVertical size={14} weight="bold" className="shrink-0 cursor-grab text-muted-foreground" />
+                <DotsSixVertical size={14} weight="bold" aria-hidden="true" className="shrink-0 cursor-grab text-muted-foreground" />
+                <div className="flex shrink-0 flex-col">
+                  <button
+                    type="button"
+                    onClick={() => i > 0 && reorderColumns(i, i - 1)}
+                    disabled={i === 0}
+                    aria-label={`Move ${col} earlier`}
+                    className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  >
+                    <CaretUp size={10} weight="bold" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => i < config.columns.length - 1 && reorderColumns(i, i + 1)}
+                    disabled={i === config.columns.length - 1}
+                    aria-label={`Move ${col} later`}
+                    className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  >
+                    <CaretDown size={10} weight="bold" aria-hidden="true" />
+                  </button>
+                </div>
                 <span className="min-w-0 flex-1 truncate font-medium text-foreground">{col}</span>
                 <select
                   value={config.aggregates.find((a) => a.column === col)?.fn ?? "none"}
@@ -218,8 +240,12 @@ export function BuilderConfigEditor({
                     </option>
                   ))}
                 </select>
-                <button onClick={() => toggleColumn(col)} className="shrink-0 text-muted-foreground hover:text-red-600">
-                  <X size={13} weight="bold" />
+                <button
+                  onClick={() => toggleColumn(col)}
+                  aria-label={`Remove ${col} from selected columns`}
+                  className="shrink-0 text-muted-foreground hover:text-red-600"
+                >
+                  <X size={13} weight="bold" aria-hidden="true" />
                 </button>
               </div>
             ))}
@@ -262,8 +288,8 @@ export function BuilderConfigEditor({
                   className="min-w-0 flex-1 rounded-md border border-[var(--color-border)] bg-background px-2 py-1.5"
                 />
               )}
-              <button onClick={() => removeFilter(i)} className="text-muted-foreground hover:text-red-600">
-                <X size={13} weight="bold" />
+              <button onClick={() => removeFilter(i)} aria-label="Remove filter" className="text-muted-foreground hover:text-red-600">
+                <X size={13} weight="bold" aria-hidden="true" />
               </button>
             </div>
           ))}
@@ -298,8 +324,8 @@ export function BuilderConfigEditor({
                 <option value="asc">ascending</option>
                 <option value="desc">descending</option>
               </select>
-              <button onClick={() => removeSort(i)} className="text-muted-foreground hover:text-red-600">
-                <X size={13} weight="bold" />
+              <button onClick={() => removeSort(i)} aria-label="Remove sort" className="text-muted-foreground hover:text-red-600">
+                <X size={13} weight="bold" aria-hidden="true" />
               </button>
             </div>
           ))}

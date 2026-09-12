@@ -8,6 +8,10 @@ function formatNumber(n: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n);
 }
 
+function chartSummary(data: ChartDatum[]): string {
+  return data.map((d) => `${d.label}: ${formatNumber(d.value)}`).join(", ");
+}
+
 export function BarChartSVG({ data }: { data: ChartDatum[] }) {
   if (data.length === 0) return <EmptyChart />;
   const width = 640;
@@ -20,7 +24,7 @@ export function BarChartSVG({ data }: { data: ChartDatum[] }) {
   const barW = Math.max(6, plotW / data.length - barGap);
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full">
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" role="img" aria-label={`Bar chart. ${chartSummary(data)}`}>
       <line
         x1={padding.left}
         y1={padding.top}
@@ -80,7 +84,7 @@ export function LineChartSVG({ data }: { data: ChartDatum[] }) {
   const path = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full">
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" role="img" aria-label={`Line chart. ${chartSummary(data)}`}>
       <line
         x1={padding.left}
         y1={padding.top}
@@ -135,7 +139,12 @@ export function PieChartSVG({ data }: { data: ChartDatum[] }) {
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-6">
-      <svg viewBox={`0 0 ${size} ${size}`} className="h-56 w-56 shrink-0">
+      <svg
+        viewBox={`0 0 ${size} ${size}`}
+        className="h-56 w-56 shrink-0"
+        role="img"
+        aria-label={`Pie chart. ${chartSummary(data)}`}
+      >
         {slices.map((s, i) => (
           <path key={i} d={s.path} fill={s.color} stroke="var(--color-card)" strokeWidth={1} />
         ))}
