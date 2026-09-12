@@ -231,6 +231,11 @@ export interface Database {
           kind: string;
           connection_ref: string | null;
           schema_cache: Json | null;
+          connector_config: Json | null;
+          connector_secret: Json | null;
+          synced_table_name: string | null;
+          last_synced_at: string | null;
+          sync_error: string | null;
           created_at: string;
         };
         Insert: {
@@ -240,6 +245,11 @@ export interface Database {
           kind?: string;
           connection_ref?: string | null;
           schema_cache?: Json | null;
+          connector_config?: Json | null;
+          connector_secret?: Json | null;
+          synced_table_name?: string | null;
+          last_synced_at?: string | null;
+          sync_error?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["data_sources"]["Insert"]>;

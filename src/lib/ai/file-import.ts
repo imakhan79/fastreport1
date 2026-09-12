@@ -110,7 +110,7 @@ function findHeaderRow(
   return null;
 }
 
-function sanitizeIdentifier(name: string): string {
+export function sanitizeIdentifier(name: string): string {
   const cleaned = name
     .toLowerCase()
     .replace(/[^a-z0-9_]+/g, "_")
@@ -119,7 +119,7 @@ function sanitizeIdentifier(name: string): string {
   return /^[a-z]/.test(cleaned) ? cleaned : `col_${cleaned || "unnamed"}`;
 }
 
-function dedupeColumnNames(names: string[]): string[] {
+export function dedupeColumnNames(names: string[]): string[] {
   const seen = new Map<string, number>();
   return names.map((name) => {
     const count = seen.get(name) ?? 0;
@@ -128,7 +128,7 @@ function dedupeColumnNames(names: string[]): string[] {
   });
 }
 
-function inferColumnType(columns: string[], rows: Record<string, unknown>[]): Record<string, "numeric" | "text"> {
+export function inferColumnType(columns: string[], rows: Record<string, unknown>[]): Record<string, "numeric" | "text"> {
   const types: Record<string, "numeric" | "text"> = {};
   for (const col of columns) {
     const samples = rows.map((r) => r[col]).filter((v) => v !== null && v !== undefined && v !== "");

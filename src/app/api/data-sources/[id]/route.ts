@@ -59,6 +59,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (fetchError || !dataSource) {
     return NextResponse.json({ error: "Data source not found." }, { status: 404 });
   }
+  if (dataSource.kind === "rest_api") {
+    return NextResponse.json(
+      { error: "REST API connectors use Sync now instead of schema refresh." },
+      { status: 400 }
+    );
+  }
 
   let tables;
   try {
