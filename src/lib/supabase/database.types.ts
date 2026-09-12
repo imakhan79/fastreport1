@@ -266,6 +266,8 @@ export interface Database {
           tables: string[];
           fields: Json;
           confidence: number | null;
+          verification_confidence: number | null;
+          verification_issues: Json;
           status: string;
           validation_errors: Json;
           result_ref: string | null;
@@ -284,6 +286,8 @@ export interface Database {
           tables?: string[];
           fields?: Json;
           confidence?: number | null;
+          verification_confidence?: number | null;
+          verification_issues?: Json;
           status?: string;
           validation_errors?: Json;
           result_ref?: string | null;

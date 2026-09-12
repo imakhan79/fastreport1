@@ -10,6 +10,7 @@ import {
   QueryExecutionError,
 } from "./query-executor";
 import { getConfidenceThreshold } from "./confidence";
+import { verifyQueryResult, checkResultSanity } from "./query-verification";
 import { statusAfterQuery } from "./report-status";
 import type { OrchestratorPlan } from "./orchestrator-schema";
 
@@ -155,9 +156,28 @@ export async function runQueryPipeline(
     }
   }
 
+  // Independent correctness check: a second model call critiques the SQL and its
+  // actual results, rather than generating them, plus free deterministic sanity
+  // checks - self-reported confidence from the generating call alone is not a
+  // check on that call's own output.
+  let verificationConfidence: number | null = null;
+  const verificationIssues: string[] = [];
+  if (issues.length === 0) {
+    verificationIssues.push(...checkResultSanity(report.natural_language_request, rows, rowCount));
+    try {
+      const verification = await verifyQueryResult(title, report.natural_language_request, generated.sql, rows, rowCount);
+      verificationConfidence = verification.confidence;
+      verificationIssues.push(...verification.issues);
+    } catch (error) {
+      console.error("Query verification failed:", error);
+    }
+  }
+
   const threshold = await getConfidenceThreshold(admin, report.org_id, "query");
   const succeeded = issues.length === 0;
-  const escalated = !succeeded || generated.confidence < threshold;
+  const effectiveConfidence =
+    verificationConfidence !== null ? Math.min(generated.confidence, verificationConfidence) : generated.confidence;
+  const escalated = !succeeded || effectiveConfidence < threshold || verificationIssues.length > 0;
 
   const { data: queryRow, error: queryInsertError } = await admin
     .from("queries")
@@ -170,6 +190,8 @@ export async function runQueryPipeline(
       tables: generated.tables,
       fields: generated.fields,
       confidence: generated.confidence,
+      verification_confidence: verificationConfidence,
+      verification_issues: verificationIssues,
       status: succeeded ? (escalated ? "pending_review" : "executed") : "failed",
       validation_errors: issues,
       result_preview: rows as unknown as Database["public"]["Tables"]["queries"]["Insert"]["result_preview"],
@@ -203,7 +225,7 @@ export async function runQueryPipeline(
       action: succeeded ? "query.escalated_for_review" : "query.failed_escalated",
       entity_type: "query",
       entity_id: queryRow.id,
-      details: { confidence: generated.confidence, threshold, issues },
+      details: { confidence: generated.confidence, verificationConfidence, threshold, issues, verificationIssues },
     });
   } else {
     await admin.from("audit_log").insert({
@@ -213,7 +235,7 @@ export async function runQueryPipeline(
       action: "query.executed",
       entity_type: "query",
       entity_id: queryRow.id,
-      details: { confidence: generated.confidence, threshold, row_count: rowCount },
+      details: { confidence: generated.confidence, verificationConfidence, threshold, row_count: rowCount },
     });
   }
 

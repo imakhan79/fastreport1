@@ -69,6 +69,8 @@ type ReportDetail = {
   query: {
     id: number;
     confidence: number | null;
+    verification_confidence: number | null;
+    verification_issues: string[];
     status: string;
     sql_text: string | null;
     validation_errors: string[];
@@ -421,8 +423,12 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             />
           </CardHeader>
           <p className="text-xs text-muted-foreground">
-            confidence {query.confidence}% &middot; {query.row_count ?? 0} rows
+            confidence {query.confidence}%
+            {query.verification_confidence !== null && <> &middot; verified {query.verification_confidence}%</>}
+            &middot; {query.row_count ?? 0} rows
           </p>
+
+          {query.verification_issues.length > 0 && <IssueList issues={query.verification_issues} />}
 
           {query.sql_text && (
             <pre className="overflow-x-auto rounded-xl bg-[#0f172a] p-4 text-xs text-slate-100">

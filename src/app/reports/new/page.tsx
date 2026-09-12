@@ -64,6 +64,8 @@ type ReportResult = {
   query: {
     id: number;
     confidence: number | null;
+    verification_confidence: number | null;
+    verification_issues: string[];
     status: string;
     sql_text: string | null;
     validation_errors: string[];
@@ -602,8 +604,14 @@ export default function NewReportPage() {
               />
             </CardHeader>
             <p className="text-xs text-muted-foreground">
-              confidence {result.query.confidence}% &middot; {result.query.row_count ?? 0} rows
+              confidence {result.query.confidence}%
+              {result.query.verification_confidence !== null && (
+                <> &middot; verified {result.query.verification_confidence}%</>
+              )}
+              &middot; {result.query.row_count ?? 0} rows
             </p>
+
+            {result.query.verification_issues.length > 0 && <IssueList issues={result.query.verification_issues} />}
 
             {result.query.sql_text && (
               <pre className="overflow-x-auto rounded-xl bg-[#0f172a] p-4 text-xs text-slate-100">
