@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./supabase/database.types";
-import { resolveConnectionString, executeReadOnlyQuery, type IntrospectedTable } from "./ai/query-executor";
+import { resolveConnectionString, isAppOwnedConnection, executeReadOnlyQuery, type IntrospectedTable } from "./ai/query-executor";
 import { AGGREGATE_FNS, FILTER_OPERATORS, type AggregateFn, type BuilderConfig, type FilterOperator } from "./report-builder-types";
 
 export class ReportBuilderError extends Error {}
@@ -51,7 +51,8 @@ export function buildSelectQuery(
   tableName: string,
   orgId: number,
   config: BuilderConfig,
-  limit: number
+  limit: number,
+  assumeOrgScoped = false
 ): { sql: string; params: unknown[] } {
   const table = findTable(tables, tableName);
 
@@ -88,7 +89,7 @@ export function buildSelectQuery(
   }
 
   const params: unknown[] = [];
-  const hasOrgIdColumn = table.columns.some((c) => c.name === "org_id");
+  const hasOrgIdColumn = assumeOrgScoped || table.columns.some((c) => c.name === "org_id");
   const whereClauses: string[] = [];
 
   if (hasOrgIdColumn) {
@@ -146,7 +147,8 @@ export async function runBuilderQuery(
   if (error || !dataSource) throw new ReportBuilderError("Data source not found.");
 
   const tables = ((dataSource.schema_cache as { tables?: IntrospectedTable[] } | null)?.tables ?? []) as IntrospectedTable[];
-  const { sql, params } = buildSelectQuery(tables, tableName, orgId, config, limit);
+  const assumeOrgScoped = isAppOwnedConnection(dataSource.connection_ref);
+  const { sql, params } = buildSelectQuery(tables, tableName, orgId, config, limit, assumeOrgScoped);
 
   const connectionString = resolveConnectionString(dataSource.connection_ref);
   const result = await executeReadOnlyQuery(sql, connectionString, params);

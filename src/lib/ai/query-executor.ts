@@ -77,9 +77,21 @@ const CONNECT_TIMEOUT_MS = 8000;
  * looks like a real Postgres connection string is used as-is, so user-added
  * connectors point at their own database instead of the app's.
  */
+const REAL_DSN_RE = /^postgres(ql)?:\/\//i;
+
 export function resolveConnectionString(connectionRef: string | null): string {
-  if (connectionRef && /^postgres(ql)?:\/\//i.test(connectionRef)) return connectionRef;
+  if (connectionRef && REAL_DSN_RE.test(connectionRef)) return connectionRef;
   return process.env.DATABASE_URL!;
+}
+
+/**
+ * True when connectionRef isn't a real external DSN, meaning the resolved
+ * connection is this app's own database - every table there is one this
+ * codebase created and org-scopes, even if a data source's cached schema
+ * (curated for what the AI should see) omits the org_id column.
+ */
+export function isAppOwnedConnection(connectionRef: string | null): boolean {
+  return !(connectionRef && REAL_DSN_RE.test(connectionRef));
 }
 
 /**
