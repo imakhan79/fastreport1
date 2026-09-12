@@ -112,6 +112,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   const [attachmentRequirements, setAttachmentRequirements] = useState<AttachmentRequirement[]>([]);
   const [regenerating, setRegenerating] = useState(false);
   const [regenerateError, setRegenerateError] = useState<string | null>(null);
+  const [regeneratingQuery, setRegeneratingQuery] = useState(false);
+  const [regenerateQueryError, setRegenerateQueryError] = useState<string | null>(null);
   const [showCompare, setShowCompare] = useState(false);
   const [compareA, setCompareA] = useState<number | null>(null);
   const [compareB, setCompareB] = useState<number | null>(null);
@@ -152,6 +154,24 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       setRegenerateError("Network error regenerating the design.");
     } finally {
       setRegenerating(false);
+    }
+  }
+
+  async function handleRegenerateQuery() {
+    setRegeneratingQuery(true);
+    setRegenerateQueryError(null);
+    try {
+      const res = await fetch(`/api/reports/${id}/regenerate-query`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) {
+        setRegenerateQueryError(json.error ?? "Failed to regenerate the query.");
+      } else {
+        await loadReport();
+      }
+    } catch {
+      setRegenerateQueryError("Network error regenerating the query.");
+    } finally {
+      setRegeneratingQuery(false);
     }
   }
 
@@ -409,24 +429,40 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       {query && (
         <Card>
           <CardHeader icon={Database} title="Query">
-            <StatusPill
-              tone={
-                query.status === "executed" ? "success" : query.status === "failed" ? "destructive" : "warning"
-              }
-              label={
-                query.status === "executed"
-                  ? "executed"
-                  : query.status === "failed"
-                    ? "failed"
-                    : "pending human review"
-              }
-            />
+            <div className="flex items-center gap-2">
+              <StatusPill
+                tone={
+                  query.status === "executed" ? "success" : query.status === "failed" ? "destructive" : "warning"
+                }
+                label={
+                  query.status === "executed"
+                    ? "executed"
+                    : query.status === "failed"
+                      ? "failed"
+                      : "pending human review"
+                }
+              />
+              <button
+                onClick={handleRegenerateQuery}
+                disabled={regeneratingQuery}
+                title="Regenerate query"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+              >
+                {regeneratingQuery ? (
+                  <CircleNotch size={13} weight="bold" className="animate-spin" />
+                ) : (
+                  <ArrowsClockwise size={13} weight="bold" />
+                )}
+              </button>
+            </div>
           </CardHeader>
           <p className="text-xs text-muted-foreground">
             confidence {query.confidence}%
             {query.verification_confidence !== null && <> &middot; verified {query.verification_confidence}%</>}
             &middot; {query.row_count ?? 0} rows
           </p>
+
+          {regenerateQueryError && <p className="text-xs text-red-600">{regenerateQueryError}</p>}
 
           {query.verification_issues.length > 0 && <IssueList issues={query.verification_issues} />}
 

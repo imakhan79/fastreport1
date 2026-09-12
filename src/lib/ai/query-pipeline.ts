@@ -16,9 +16,13 @@ import type { OrchestratorPlan } from "./orchestrator-schema";
 
 const MAX_REGENERATE_ATTEMPTS = 1;
 
+/** Original attempt + up to this many auto-regenerations after human rejection, before we stop looping. */
+export const MAX_AUTO_QUERY_ATTEMPTS = 4;
+
 export class QueryPipelineError extends Error {}
 
 type SchemaTable = { name: string; columns: { name: string; type: string }[] };
+type Report = Database["public"]["Tables"]["reports"]["Row"];
 
 function buildSystemPrompt(orgId: number, tables: SchemaTable[]): string {
   const schemaDescription = tables
@@ -53,7 +57,7 @@ async function generateQuery(
   });
 }
 
-async function regenerateQuery(
+async function fixQuery(
   systemPrompt: string,
   reportTitle: string,
   request: string,
@@ -77,11 +81,8 @@ export type QueryPipelineResult = {
   escalated: boolean;
 };
 
-export async function runQueryPipeline(
-  admin: SupabaseClient<Database>,
-  report: Database["public"]["Tables"]["reports"]["Row"],
-  plan: OrchestratorPlan
-): Promise<QueryPipelineResult> {
+/** Generates, validates, executes, verifies, and saves one query attempt (does not touch reports.status). */
+async function buildAndInsertQuery(admin: SupabaseClient<Database>, report: Report): Promise<QueryPipelineResult> {
   const { data: dataSource, error: dataSourceError } = await admin
     .from("data_sources")
     .select("*")
@@ -129,7 +130,7 @@ export async function runQueryPipeline(
     });
 
     try {
-      generated = await regenerateQuery(systemPrompt, title, report.natural_language_request, generated.sql, issues);
+      generated = await fixQuery(systemPrompt, title, report.natural_language_request, generated.sql, issues);
     } catch (error) {
       throw new QueryPipelineError(error instanceof AiToolCallError ? error.message : String(error));
     }
@@ -239,10 +240,69 @@ export async function runQueryPipeline(
     });
   }
 
-  await admin
-    .from("reports")
-    .update({ status: statusAfterQuery(plan) })
-    .eq("id", report.id);
-
   return { query: queryRow, escalated };
+}
+
+export async function runQueryPipeline(
+  admin: SupabaseClient<Database>,
+  report: Report,
+  plan: OrchestratorPlan
+): Promise<QueryPipelineResult> {
+  const result = await buildAndInsertQuery(admin, report);
+
+  await admin.from("reports").update({ status: statusAfterQuery(plan) }).eq("id", report.id);
+
+  return result;
+}
+
+/**
+ * Generates a brand-new query attempt for a report whose current query was
+ * rejected - called automatically on human rejection (task-resolution.ts)
+ * and available as a manual "Regenerate" action. Queries have no version
+ * column (unlike designs); the report detail page and isReportReadyToGenerate
+ * both already treat "the most recently inserted query row" as authoritative
+ * (`order by id desc limit 1`), so a fresh row naturally supersedes the
+ * rejected one without needing extra schema. Deliberately never touches
+ * reports.status, for the same reason regenerateDesign() doesn't: the report
+ * has typically already moved past the "querying" stage by the time a human
+ * rejects a query, since query review here is advisory, not gating.
+ */
+export async function regenerateRejectedQuery(
+  admin: SupabaseClient<Database>,
+  report: Report,
+  reason: "auto_rejection" | "manual"
+): Promise<QueryPipelineResult | null> {
+  if (reason === "auto_rejection") {
+    const { count } = await admin
+      .from("queries")
+      .select("id", { count: "exact", head: true })
+      .eq("report_id", report.id);
+
+    if ((count ?? 0) >= MAX_AUTO_QUERY_ATTEMPTS) {
+      await admin.from("audit_log").insert({
+        org_id: report.org_id,
+        report_id: report.id,
+        actor_type: "system",
+        action: "query.regeneration_limit_reached",
+        entity_type: "report",
+        entity_id: report.id,
+        details: { attempts_tried: count },
+      });
+      return null;
+    }
+  }
+
+  const result = await buildAndInsertQuery(admin, report);
+
+  await admin.from("audit_log").insert({
+    org_id: report.org_id,
+    report_id: report.id,
+    actor_type: reason === "auto_rejection" ? "system" : "user",
+    action: "query.regenerated",
+    entity_type: "query",
+    entity_id: result.query.id,
+    details: { reason },
+  });
+
+  return result;
 }

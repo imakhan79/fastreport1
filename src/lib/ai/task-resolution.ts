@@ -4,6 +4,7 @@ import { resolveApproval } from "./approval-pipeline";
 import { advanceReportWorkflow } from "./workflow";
 import { maybeAdvancePastAttachments } from "./attachment-pipeline";
 import { regenerateDesign } from "./design-pipeline";
+import { regenerateRejectedQuery } from "./query-pipeline";
 import type { OrchestratorPlan } from "./orchestrator-schema";
 
 export class TaskResolutionError extends Error {}
@@ -70,6 +71,14 @@ export async function resolveTask(
       .from("queries")
       .update({ status: decision === "approve" ? "approved" : "rejected" })
       .eq("id", task.related_entity_id);
+
+    if (decision === "reject" && report) {
+      try {
+        await regenerateRejectedQuery(admin, report, "auto_rejection");
+      } catch (error) {
+        console.error("Automatic query regeneration failed:", error);
+      }
+    }
   } else if (task.task_type === "attachment_review" && task.related_entity_id) {
     const { data: attachment } = await admin
       .from("attachments")

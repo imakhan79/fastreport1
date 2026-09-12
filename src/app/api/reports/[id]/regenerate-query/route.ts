@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthContext, UnauthorizedError } from "@/lib/auth";
-import { regenerateDesign, DesignPipelineError } from "@/lib/ai/design-pipeline";
+import { regenerateRejectedQuery, QueryPipelineError } from "@/lib/ai/query-pipeline";
 import { advanceReportWorkflow } from "@/lib/ai/workflow";
 import type { OrchestratorPlan } from "@/lib/ai/orchestrator-schema";
 
@@ -23,26 +23,22 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (error || !report) return NextResponse.json({ error: "Report not found." }, { status: 404 });
 
   try {
-    const result = await regenerateDesign(admin, report, "manual");
+    const result = await regenerateRejectedQuery(admin, report, "manual");
     if (!result) {
       return NextResponse.json({ error: "This report has hit its automatic regeneration limit already." }, { status: 400 });
     }
 
-    // A design that regenerates to auto-approved (or later gets approved) needs
-    // the report re-checked for readiness - otherwise a report already sitting
-    // at "generating" (or later) with no other trigger pending would stay
-    // stuck forever even though its design is now fine.
     if (report.structured_plan) {
       try {
         await advanceReportWorkflow(admin, report, report.structured_plan as unknown as OrchestratorPlan);
       } catch (workflowError) {
-        console.error("Workflow advancement failed after manual design regeneration:", workflowError);
+        console.error("Workflow advancement failed after manual query regeneration:", workflowError);
       }
     }
 
-    return NextResponse.json({ design: result.design, escalated: result.escalated });
+    return NextResponse.json({ query: result.query, escalated: result.escalated });
   } catch (err) {
-    const message = err instanceof DesignPipelineError ? err.message : "Failed to regenerate the design.";
+    const message = err instanceof QueryPipelineError ? err.message : "Failed to regenerate the query.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

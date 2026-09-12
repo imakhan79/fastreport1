@@ -30,6 +30,20 @@ export async function requestApprovalIfNeeded(
     .maybeSingle();
   if (existingTask) return;
 
+  // Design/query review is advisory - it doesn't block reports.status from
+  // reaching pending_approval - but the human approving the whole report
+  // should never be looking at a report whose design or query a *different*
+  // reviewer hasn't weighed in on yet. Defer until those clear; whichever
+  // one resolves last re-triggers advanceReportWorkflow (task-resolution.ts),
+  // which calls back in here with the same still-pending_approval status.
+  const { count: openReviewCount } = await admin
+    .from("tasks")
+    .select("id", { count: "exact", head: true })
+    .eq("report_id", report.id)
+    .in("task_type", ["design_review", "query_review"])
+    .eq("status", "open");
+  if ((openReviewCount ?? 0) > 0) return;
+
   const responsibleUserId = await pickResponsibleUser(admin, report.org_id);
   const deadline = new Date(Date.now() + DEADLINE_HOURS * 60 * 60 * 1000).toISOString();
 
