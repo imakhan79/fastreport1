@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ChartLine, Plus, Trash, CircleNotch, SquaresFour } from "@phosphor-icons/react";
-import { fadeIn, Card } from "@/components/report-blocks";
+import { ChartLine, Plus, Trash, CircleNotch, SquaresFour, WarningCircle } from "@phosphor-icons/react";
+import { fadeIn, Card, Alert } from "@/components/report-blocks";
 
 type DashboardSummary = { id: number; name: string; refresh_seconds: number; updated_at: string; widgetCount: number };
 
@@ -15,6 +15,7 @@ export default function DashboardsPage() {
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -33,22 +34,34 @@ export default function DashboardsPage() {
   async function handleCreate() {
     if (!newName.trim()) return;
     setCreating(true);
+    setError(null);
     try {
       const res = await fetch("/api/dashboards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newName.trim() }),
       });
-      const data = await res.json();
-      if (res.ok) router.push(`/dashboards/${data.dashboard.id}`);
+      const data = await res.json().catch(() => null);
+      if (res.ok) {
+        router.push(`/dashboards/${data.dashboard.id}`);
+      } else {
+        setError(data?.error ?? "Failed to create the dashboard.");
+      }
+    } catch {
+      setError("Network error creating the dashboard.");
     } finally {
       setCreating(false);
     }
   }
 
   async function handleDelete(id: number) {
+    const previous = dashboards;
     setDashboards((prev) => prev.filter((d) => d.id !== id));
-    await fetch(`/api/dashboards/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/dashboards/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      setDashboards(previous);
+      setError("Failed to delete the dashboard - it's still here.");
+    }
   }
 
   return (
@@ -65,6 +78,12 @@ export default function DashboardsPage() {
           </p>
         </div>
       </motion.div>
+
+      {error && (
+        <Alert icon={WarningCircle} tone="destructive">
+          {error}
+        </Alert>
+      )}
 
       <Card>
         <div className="flex flex-wrap items-center gap-2">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthContext, UnauthorizedError } from "@/lib/auth";
-import type { BuilderConfig } from "@/lib/report-builder-types";
+import type { BuilderConfig, IntrospectedTable } from "@/lib/report-builder-types";
 
 const WIDGET_TYPES = ["kpi", "chart", "table"] as const;
 
@@ -36,6 +36,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (!WIDGET_TYPES.includes(widgetType) || !title || !Number.isInteger(dataSourceId) || !table || !config) {
     return NextResponse.json({ error: "Missing or invalid widgetType, title, dataSourceId, table, or config." }, { status: 400 });
+  }
+
+  // A widget snapshots {dataSourceId, table, config} independently of the report
+  // builder query engine, so it never goes through buildSelectQuery's own
+  // allowlist checks - validate here instead of trusting the client-supplied
+  // ids, the same way any other org-scoped write in this app does.
+  const { data: dataSource } = await admin
+    .from("data_sources")
+    .select("schema_cache")
+    .eq("id", dataSourceId)
+    .eq("org_id", orgId)
+    .maybeSingle();
+  if (!dataSource) {
+    return NextResponse.json({ error: "Data source not found." }, { status: 400 });
+  }
+  const tables = ((dataSource.schema_cache as { tables?: IntrospectedTable[] } | null)?.tables ?? []) as IntrospectedTable[];
+  if (!tables.some((t) => t.name === table)) {
+    return NextResponse.json({ error: `Table "${table}" is not part of this data source's schema.` }, { status: 400 });
   }
 
   const { data: existing } = await admin

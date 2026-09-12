@@ -151,26 +151,41 @@ export default function DashboardDetailPage() {
 
   async function handleRefreshIntervalChange(value: number) {
     if (!dashboard) return;
+    const previous = dashboard.refresh_seconds;
     setDashboard({ ...dashboard, refresh_seconds: value });
-    await fetch(`/api/dashboards/${dashboardId}`, {
+    const res = await fetch(`/api/dashboards/${dashboardId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshSeconds: value }),
     });
+    if (!res.ok) {
+      setDashboard((prev) => (prev ? { ...prev, refresh_seconds: previous } : prev));
+      setError("Failed to save the refresh interval - reverted.");
+    }
   }
 
   async function handleDeleteWidget(widgetId: number) {
+    const previous = widgets;
     setWidgets((prev) => prev.filter((w) => w.id !== widgetId));
-    await fetch(`/api/dashboards/${dashboardId}/widgets/${widgetId}`, { method: "DELETE" });
+    const res = await fetch(`/api/dashboards/${dashboardId}/widgets/${widgetId}`, { method: "DELETE" });
+    if (!res.ok) {
+      setWidgets(previous);
+      setError("Failed to remove the widget - it's still on this dashboard.");
+    }
   }
 
   async function persistOrder(next: Widget[]) {
+    const previous = widgets;
     setWidgets(next);
-    await fetch(`/api/dashboards/${dashboardId}/widgets/reorder`, {
+    const res = await fetch(`/api/dashboards/${dashboardId}/widgets/reorder`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ order: next.map((w) => w.id) }),
     });
+    if (!res.ok) {
+      setWidgets(previous);
+      setError("Failed to save the new widget order - reverted.");
+    }
   }
 
   function handleDrop(targetIndex: number) {
