@@ -2,7 +2,15 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "./database.types";
 
-const PROTECTED_PREFIXES = ["/reports", "/schedules", "/data-sources", "/settings", "/activity", "/tasks"];
+const PROTECTED_PREFIXES = [
+  "/reports",
+  "/schedules",
+  "/data-sources",
+  "/settings",
+  "/activity",
+  "/tasks",
+  "/sales-report",
+];
 
 /**
  * Refreshes the Supabase session cookie on every request (required by

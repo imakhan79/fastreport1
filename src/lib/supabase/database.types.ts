@@ -401,8 +401,44 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["confidence_thresholds"]["Insert"]>;
         Relationships: [];
       };
+      sales_orders: {
+        Row: {
+          id: number;
+          org_id: number;
+          order_date: string;
+          category_name: string;
+          units_sold: number;
+          gross_revenue: number;
+          discount_amount: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          org_id: number;
+          order_date: string;
+          category_name: string;
+          units_sold: number;
+          gross_revenue?: number;
+          discount_amount?: number;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sales_orders"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      sales_report_quarterly: {
+        Args: { p_org_id: number; p_from: string | null; p_to: string | null };
+        Returns: {
+          sales_year: number;
+          quarter: string;
+          category_name: string;
+          total_orders: number;
+          total_units_sold: number;
+          net_sales_revenue: number;
+        }[];
+      };
+    };
   };
 }
